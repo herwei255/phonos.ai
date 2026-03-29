@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Meeting Notes Tool</title>
+  <title>Phonos.ai</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -15,11 +15,26 @@
     /* ── Header ── */
     .top-bar {
       background: #fff; border-bottom: 1px solid #e4e4e7;
-      padding: 14px 24px; display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 24px; display: flex; align-items: center; justify-content: space-between;
       flex-shrink: 0;
     }
-    .top-bar h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.3px; }
-    .top-bar .subtitle { color: #71717a; font-size: 0.82rem; }
+
+    /* Brand / Logo */
+    .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; }
+    .brand-icon {
+      width: 34px; height: 34px; flex-shrink: 0;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      border-radius: 9px; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(99,102,241,.30);
+    }
+    .brand-icon svg { display: block; }
+    .brand-text { display: flex; flex-direction: column; gap: 1px; }
+    .brand-name {
+      font-size: 1.18rem; font-weight: 800; letter-spacing: -0.5px;
+      color: #18181b; line-height: 1;
+    }
+    .brand-name .brand-tld { color: #6366f1; }
+    .brand-tagline { font-size: 0.74rem; color: #a1a1aa; font-weight: 400; letter-spacing: 0; }
 
     /* ── Layout ── */
     .layout { display: flex; flex: 1; overflow: hidden; }
@@ -35,6 +50,22 @@
       display: flex; align-items: center; justify-content: space-between;
     }
     .sidebar-header h2 { font-size: 0.88rem; font-weight: 600; color: #3f3f46; }
+    .watch-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.7rem; font-weight: 500; color: #16a34a;
+      background: #f0fdf4; border: 1px solid #bbf7d0;
+      border-radius: 999px; padding: 2px 8px; cursor: default;
+      white-space: nowrap;
+    }
+    .watch-pill .dot {
+      width: 6px; height: 6px; border-radius: 50%; background: #16a34a;
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.35; }
+    }
+    .watch-pill.inactive { color: #71717a; background: #f4f4f5; border-color: #e4e4e7; }
+    .watch-pill.inactive .dot { background: #a1a1aa; animation: none; }
     .refresh-btn {
       padding: 5px 10px; font-size: 0.78rem; border-radius: 6px;
       border: 1px solid #e4e4e7; background: #fff; cursor: pointer; color: #52525b;
@@ -88,6 +119,103 @@
     }
     .detail-header h2 { font-size: 1.2rem; font-weight: 700; color: #18181b; }
     .detail-header .meta { font-size: 0.82rem; color: #a1a1aa; margin-top: 4px; }
+
+    /* Series */
+    .series-bar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      margin-bottom: 18px; padding: 10px 14px;
+      background: #f5f3ff; border: 1px solid #e0d9ff; border-radius: 10px;
+      font-size: 0.82rem;
+    }
+    .series-bar .series-label { color: #4f46e5; font-weight: 600; flex: 1; min-width: 0; }
+    .series-bar .series-pos   { color: #7c7aaa; font-size: 0.76rem; white-space: nowrap; }
+    .series-link-btn {
+      font-size: 0.78rem; color: #6366f1; background: none; border: none;
+      cursor: pointer; padding: 0; font-weight: 500; text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .series-link-btn:hover { color: #4f46e5; }
+    .series-action-btn {
+      padding: 5px 12px; border-radius: 7px; font-size: 0.78rem; font-weight: 600;
+      border: 1px solid #c4b5fd; background: #fff; color: #6366f1; cursor: pointer;
+      white-space: nowrap; transition: background .15s;
+    }
+    .series-action-btn:hover:not(:disabled) { background: #eef2ff; }
+    .series-action-btn:disabled { opacity: .5; cursor: not-allowed; }
+    .series-unlink-btn {
+      background: none; border: none; cursor: pointer; color: #c4c4c7;
+      font-size: 0.9rem; padding: 2px 4px; border-radius: 4px; transition: color .15s;
+    }
+    .series-unlink-btn:hover { color: #ef4444; }
+    /* Series linker form (inline) */
+    .series-linker {
+      display: none; margin-bottom: 18px; padding: 12px 14px;
+      background: #fafafa; border: 1px solid #e4e4e7; border-radius: 10px;
+    }
+    .series-linker.open { display: block; }
+    .series-linker label { font-size: 0.78rem; font-weight: 600; color: #52525b; display: block; margin-bottom: 8px; }
+    .series-linker select, .series-linker input[type=text] {
+      width: 100%; padding: 8px 10px; border: 1px solid #e4e4e7; border-radius: 7px;
+      font-size: 0.82rem; font-family: inherit; color: #18181b; background: #fff;
+      margin-bottom: 10px;
+    }
+    .series-linker select:focus, .series-linker input[type=text]:focus {
+      outline: none; border-color: #6366f1;
+    }
+    .series-linker-actions { display: flex; gap: 8px; }
+    /* Diff panel */
+    .diff-section {
+      margin-bottom: 24px; border: 2px solid #e0d9ff; border-radius: 12px; overflow: hidden;
+    }
+    .diff-section-header {
+      background: #f5f3ff; padding: 12px 18px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .diff-section-header h3 { font-size: 0.85rem; font-weight: 700; color: #4f46e5; }
+    .diff-section-header .diff-meta { font-size: 0.76rem; color: #7c7aaa; }
+    .diff-body p  { margin: 4px 0 8px; color: #18181b; font-size: 0.88rem; line-height: 1.6; }
+    .diff-body h1, .diff-body h2, .diff-body h3 {
+      font-size: 0.72rem; font-weight: 700; letter-spacing: 0.8px;
+      text-transform: uppercase; color: #6366f1;
+      margin: 18px 0 5px; border: none;
+    }
+    .diff-body ul, .diff-body ol { padding-left: 16px; margin: 4px 0 10px; }
+    .diff-body li { font-size: 0.88rem; color: #18181b; margin: 3px 0; line-height: 1.6; }
+    .diff-body strong { font-weight: 700; color: #18181b; }
+    .diff-body hr { border: none; border-top: 1px solid #e4e4e7; margin: 14px 0; }
+    .diff-body {
+      padding: 18px 20px; background: #fff;
+      font-size: 0.88rem; line-height: 1.75; color: #27272a;
+    }
+    .diff-body .note-heading { font-size:0.72rem;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#6366f1;margin-top:18px;margin-bottom:5px; }
+    .diff-body .note-bullet  { display:flex;gap:8px;margin:3px 0;padding-left:4px; }
+    .diff-body .note-bullet .bull { color:#6366f1;flex-shrink:0; }
+    .diff-body .note-line    { margin:2px 0; }
+
+    /* Rename */
+    .title-row { display: flex; align-items: center; gap: 8px; }
+    .rename-input {
+      font-size: 1.2rem; font-weight: 700; color: #18181b;
+      border: none; border-bottom: 2px solid #6366f1; outline: none;
+      background: transparent; width: 100%; padding: 1px 0;
+    }
+    .edit-name-btn {
+      flex-shrink: 0; background: none; border: none; cursor: pointer;
+      font-size: 0.9rem; color: #c4c4c7; padding: 2px 4px; border-radius: 4px;
+      transition: color .15s;
+    }
+    .edit-name-btn:hover { color: #6366f1; }
+
+    /* Delete in sidebar */
+    .memo-item { position: relative; }
+    .memo-delete {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; font-size: 0.85rem;
+      color: #d4d4d8; padding: 4px 6px; border-radius: 5px;
+      opacity: 0; transition: opacity .15s, color .15s;
+    }
+    .memo-item:hover .memo-delete { opacity: 1; }
+    .memo-delete:hover { color: #ef4444 !important; }
 
     /* ── Options row ── */
     .options-row {
@@ -183,6 +311,58 @@
       font-size: 0.78rem; white-space: pre-wrap;
     }
 
+    /* ── Audio player ── */
+    .audio-player-wrap {
+      margin-bottom: 14px;
+      background: #f9f9fb; border: 1px solid #e4e4e7;
+      border-radius: 10px; padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .audio-player-wrap audio {
+      flex: 1; height: 36px;
+      accent-color: #6366f1;
+    }
+
+    /* ── Timestamped transcript segments ── */
+    .ts-segment {
+      display: block; padding: 4px 8px; border-radius: 6px;
+      cursor: pointer; transition: background .12s;
+      line-height: 1.6;
+    }
+    .ts-segment:hover { background: #f0f0ff; }
+    .ts-segment.active { background: #eef2ff; border-left: 3px solid #6366f1; padding-left: 5px; }
+    .ts-time {
+      display: inline-block; min-width: 42px;
+      font-size: 0.68rem; color: #6366f1; font-weight: 600;
+      margin-right: 8px; flex-shrink: 0; font-family: "SF Mono", monospace;
+    }
+
+    /* ── Prompt viewer ── */
+    .prompt-viewer {
+      margin-bottom: 14px;
+    }
+    .prompt-toggle {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.75rem; font-weight: 600; color: #6366f1;
+      cursor: pointer; user-select: none; margin-bottom: 0;
+      background: none; border: none; padding: 0;
+    }
+    .prompt-toggle:hover { color: #4f46e5; }
+    .prompt-toggle .arrow { transition: transform .2s; display: inline-block; }
+    .prompt-viewer.open .prompt-toggle .arrow { transform: rotate(90deg); }
+    .prompt-body {
+      display: none; margin-top: 8px;
+    }
+    .prompt-viewer.open .prompt-body { display: block; }
+    .prompt-body textarea {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid #e4e4e7; border-radius: 8px;
+      font-size: 0.74rem; font-family: "SF Mono", "Menlo", monospace;
+      line-height: 1.6; color: #52525b; background: #fafafa;
+      resize: vertical; min-height: 160px; max-height: 380px;
+    }
+    .prompt-body textarea:focus { outline: none; }
+
     /* ── Custom instructions ── */
     .custom-instructions-row {
       margin-top: 12px; margin-bottom: 20px;
@@ -251,8 +431,25 @@
     }
     .chat-msg {
       max-width: 85%; padding: 12px 16px; border-radius: 12px;
-      font-size: 0.88rem; line-height: 1.6; white-space: pre-wrap;
+      font-size: 0.88rem; line-height: 1.6;
     }
+    /* User bubbles: plain text, preserve line breaks */
+    .chat-msg.user { white-space: pre-wrap; }
+    /* Assistant bubbles: markdown rendered to HTML */
+    .chat-msg.assistant p  { margin: 0 0 8px 0; }
+    .chat-msg.assistant p:last-child { margin-bottom: 0; }
+    .chat-msg.assistant ul, .chat-msg.assistant ol { margin: 4px 0 8px 16px; padding: 0; }
+    .chat-msg.assistant li { margin: 2px 0; }
+    .chat-msg.assistant strong { font-weight: 700; }
+    .chat-msg.assistant em { font-style: italic; }
+    .chat-msg.assistant code {
+      font-family: "SF Mono", monospace; font-size: 0.82em;
+      background: #f1f1f4; padding: 1px 5px; border-radius: 4px;
+    }
+    .chat-msg.assistant blockquote {
+      border-left: 3px solid #d4d4d8; margin: 6px 0; padding-left: 10px; color: #71717a;
+    }
+    .chat-msg.assistant hr { border: none; border-top: 1px solid #e4e4e7; margin: 10px 0; }
     .chat-msg.user {
       align-self: flex-end;
       background: #6366f1; color: #fff; border-bottom-right-radius: 4px;
@@ -291,20 +488,39 @@
     .chat-send:hover:not(:disabled) { background: #4f46e5; }
     .chat-send:disabled { opacity: .45; cursor: not-allowed; }
     .chat-hint { font-size: 0.72rem; color: #a1a1aa; margin-top: 6px; }
+    .memo-cite-link {
+      color: #6366f1; text-decoration: underline; text-underline-offset: 2px;
+      font-weight: 500; cursor: pointer;
+    }
+    .memo-cite-link:hover { color: #4f46e5; }
 
     @media (max-width: 720px) {
       .sidebar { width: 100%; max-height: 240px; border-right: none; border-bottom: 1px solid #e4e4e7; }
       .layout  { flex-direction: column; }
     }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
 </head>
 <body>
 
 <div class="top-bar">
-  <div>
-    <h1>🎙️ Meeting Notes Tool</h1>
-    <div class="subtitle">Voice memo transcription & summarization</div>
-  </div>
+  <a class="brand" href="/" style="text-decoration:none;">
+    <div class="brand-icon">
+      <!-- Sound-wave icon -->
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1"  y="8"  width="2" height="4" rx="1" fill="white" opacity="0.6"/>
+        <rect x="4"  y="5"  width="2" height="10" rx="1" fill="white" opacity="0.8"/>
+        <rect x="7"  y="3"  width="2" height="14" rx="1" fill="white"/>
+        <rect x="10" y="5"  width="2" height="10" rx="1" fill="white" opacity="0.8"/>
+        <rect x="13" y="7"  width="2" height="6"  rx="1" fill="white" opacity="0.7"/>
+        <rect x="16" y="9"  width="2" height="2"  rx="1" fill="white" opacity="0.5"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <div class="brand-name">phonos<span class="brand-tld">.ai</span></div>
+      <div class="brand-tagline">Voice memo transcription &amp; summarization</div>
+    </div>
+  </a>
   <div class="tab-nav">
     <button class="tab-btn active" id="tab-memos" onclick="switchTab('memos')">📋 Memos</button>
     <button class="tab-btn"        id="tab-chat"  onclick="switchTab('chat')">💬 Chat with Notes</button>
@@ -317,14 +533,22 @@
   <div class="sidebar">
     <div class="sidebar-header">
       <h2>Voice Memos</h2>
-      <button class="refresh-btn" onclick="loadMemos()">Refresh</button>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span class="watch-pill inactive" id="watch-pill" title="Auto-watch inactive">
+          <span class="dot"></span><span id="watch-label">watching</span>
+        </span>
+        <button class="refresh-btn" onclick="loadMemos()">Refresh</button>
+      </div>
     </div>
     <div class="memo-list" id="memo-list"></div>
     <div class="sidebar-upload">
       <label class="upload-btn">
         + Upload Voice Memo
-        <input type="file" id="upload-input" accept="audio/*,.m4a,.mp3,.wav,.ogg,.webm,.mp4" />
+        <input type="file" id="upload-input" accept="audio/*,.m4a,.mp3,.wav,.ogg,.webm,.mp4" multiple />
       </label>
+      <div style="font-size:0.72rem;color:#a1a1aa;margin-top:7px;line-height:1.5;">
+        📱 On iPhone: Voice Memos → ··· → Share → Save to Files, then upload here.
+      </div>
     </div>
   </div>
 
@@ -340,10 +564,50 @@
     <div class="detail-card" id="detail-card" style="display:none;">
 
       <div class="detail-header">
-        <div>
-          <h2 id="detail-title"></h2>
+        <div style="flex:1;min-width:0;">
+          <div class="title-row">
+            <h2 id="detail-title" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></h2>
+            <button class="edit-name-btn" title="Rename" onclick="startRename()">✏️</button>
+          </div>
           <div class="meta" id="detail-meta"></div>
         </div>
+      </div>
+
+      <!-- Series bar (shown when memo is in a series) -->
+      <div class="series-bar" id="series-bar" style="display:none;">
+        <span class="series-label" id="series-bar-name"></span>
+        <span class="series-pos"  id="series-bar-pos"></span>
+        <button class="series-action-btn" id="series-diff-btn" onclick="generateDiff()">⚡ Compare meetings</button>
+        <button class="series-unlink-btn" title="Remove from series" onclick="unlinkSeries()">✕</button>
+      </div>
+
+      <!-- "Link to series" trigger (shown when memo is NOT in a series) -->
+      <div id="series-add-row" style="margin-bottom:14px;display:none;">
+        <button class="series-link-btn" onclick="openSeriesLinker()">📅 Link to recurring meeting series</button>
+      </div>
+
+      <!-- Inline series linker form -->
+      <div class="series-linker" id="series-linker">
+        <label>Add to a recurring series</label>
+        <select id="series-select" onchange="onSeriesSelectChange()">
+          <option value="">— select an existing series —</option>
+          <option value="__new__">+ Create new series…</option>
+        </select>
+        <input type="text" id="series-new-name" placeholder="Series name (e.g. Edelweiss SIF Quarterly)"
+               style="display:none;" />
+        <div class="series-linker-actions">
+          <button class="process-btn" style="padding:7px 18px;font-size:0.82rem;" onclick="saveSeries()">Save</button>
+          <button class="action-btn" onclick="closeSeriesLinker()">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Diff result panel -->
+      <div class="diff-section" id="diff-section" style="display:none;">
+        <div class="diff-section-header">
+          <h3 id="diff-section-title">Meeting Comparison</h3>
+          <span class="diff-meta" id="diff-section-meta"></span>
+        </div>
+        <div class="diff-body" id="diff-body"></div>
       </div>
 
       <!-- Options -->
@@ -366,6 +630,16 @@
           {% endif %}
           <button class="process-btn" id="process-btn" onclick="processSelected()">Generate Notes</button>
         </div>
+        <!-- Prompt viewer (collapsible) -->
+        <div class="prompt-viewer" id="prompt-viewer">
+          <button class="prompt-toggle" onclick="togglePromptViewer()">
+            <span class="arrow">▶</span> <span id="prompt-toggle-label">View prompt</span>
+          </button>
+          <div class="prompt-body">
+            <textarea id="prompt-display" readonly></textarea>
+          </div>
+        </div>
+
         <div class="custom-instructions-row">
           <div class="custom-instructions-label">
             Custom instructions
@@ -380,7 +654,7 @@
       <!-- Progress -->
       <div class="progress-bar" id="progress-bar">
         <div class="steps">
-          <div class="step" id="step-transcribe"><div class="dot">1</div><div class="step-label">Transcribing with Whisper…</div></div>
+          <div class="step" id="step-transcribe"><div class="dot">1</div><div class="step-label" id="step-transcribe-label">Transcribing with Whisper…</div></div>
           <div class="step" id="step-notes">     <div class="dot">2</div><div class="step-label">Generating meeting notes…</div></div>
           <div class="step" id="step-save">      <div class="dot">3</div><div class="step-label">Saving results…</div></div>
         </div>
@@ -402,6 +676,9 @@
         </div>
         <div class="section">
           <h3>Transcript</h3>
+          <div class="audio-player-wrap" id="audio-player-wrap" style="display:none;">
+            <audio id="audio-player" controls preload="metadata"></audio>
+          </div>
           <div class="section-body transcript" id="transcript-body"></div>
           <div class="actions" style="margin-top:10px;">
             <button class="action-btn" onclick="copyText('transcript')">Copy Transcript</button>
@@ -435,6 +712,8 @@
 </div><!-- /layout -->
 
 <script>
+  const PROMPTS = {{ prompts_json | safe }};
+
   let memos        = [];
   let selectedMemo = null;
   let currentMode  = 'standard';
@@ -442,6 +721,10 @@
   let rawTranscript = '';
 
   loadMemos();
+  loadSeries();
+  loadWatcherStatus();
+  // Seed prompt viewer with the default mode
+  document.getElementById('prompt-display').value = PROMPTS[currentMode] || '';
 
   // ── Memo list ──
 
@@ -449,6 +732,35 @@
     const res = await fetch('/api/memos');
     memos = await res.json();
     renderMemoList();
+  }
+
+  // ── iCloud auto-watch status ──
+  async function loadWatcherStatus() {
+    try {
+      const res  = await fetch('/api/watcher/status');
+      const data = await res.json();
+      const pill  = document.getElementById('watch-pill');
+      const label = document.getElementById('watch-label');
+      if (data.active) {
+        pill.classList.remove('inactive');
+        const folderShort = (data.folder || '').replace(/.*\//, '') || 'iCloud';
+        const tip = data.last_filename
+          ? `Watching ${data.folder}\nLast: ${data.last_filename} (${data.last_at})`
+          : `Watching ${data.folder}`;
+        pill.title  = tip;
+        label.textContent = 'watching';
+        // Poll every 15s so the UI picks up newly auto-processed files
+        setInterval(async () => {
+          const r = await fetch('/api/watcher/status');
+          const d = await r.json();
+          if (d.last_at !== data.last_at) loadMemos();
+        }, 15000);
+      } else {
+        pill.classList.add('inactive');
+        pill.title  = 'Auto-watch inactive — iCloud Voice Memos folder not found';
+        label.textContent = 'not watching';
+      }
+    } catch (_) { /* non-fatal */ }
   }
 
   function renderMemoList() {
@@ -467,10 +779,12 @@
            ${m.note_type === 'hedge_fund' ? '<span class="badge hf">HF</span>' : ''}
            ${m.apple_saved ? '<span class="badge apple">Notes</span>' : ''}`
         : '<span class="badge new">New</span>';
+      const label = m.display_name || m.filename;
       return `<div class="memo-item ${active}" onclick="selectMemo('${m.filename}')">
-        <div class="memo-name">${m.filename}</div>
+        <div class="memo-name">${esc(label)}</div>
         <div class="memo-meta">${dateStr} at ${timeStr} · ${m.file_size_mb} MB</div>
         <div class="memo-badges">${badges}</div>
+        <button class="memo-delete" title="Delete" onclick="deleteMemo(event, '${m.filename}')">🗑</button>
       </div>`;
     }).join('');
   }
@@ -488,11 +802,14 @@
     const d       = new Date(selectedMemo.file_date);
     const dateStr = d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
     const timeStr = d.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
-    document.getElementById('detail-title').textContent = selectedMemo.filename;
-    document.getElementById('detail-meta').textContent  = `${dateStr} at ${timeStr} · ${selectedMemo.file_size_mb} MB`;
+    document.getElementById('detail-title').textContent = selectedMemo.display_name || selectedMemo.filename;
+    document.getElementById('detail-meta').textContent  = `${dateStr} at ${timeStr} · ${selectedMemo.file_size_mb} MB · ${selectedMemo.filename}`;
 
     // Always show options panel so Regenerate / Generate button is always accessible
     document.getElementById('options-panel').style.display = 'block';
+    document.getElementById('diff-section').style.display = 'none';
+    document.getElementById('series-linker').classList.remove('open');
+    renderSeriesBar();
 
     if (selectedMemo.processed) {
       const res  = await fetch(`/api/memo/${encodeURIComponent(filename)}`);
@@ -546,12 +863,87 @@
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  function renderChat(markdown) {
+    // Convert markdown → HTML, then make memo filenames clickable jump-links
+    let html = marked.parse(markdown || '', { breaks: true, gfm: true });
+    // Find any known filename mentioned in the response and wrap in a link
+    memos.forEach(m => {
+      const fname = m.filename;
+      // Escape for use in regex
+      const escaped = fname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(escaped, 'g');
+      html = html.replace(re,
+        `<a href="#" class="memo-cite-link" onclick="jumpToMemo('${fname}');return false;" title="View this memo">${fname}</a>`
+      );
+    });
+    return html;
+  }
+
+  function jumpToMemo(filename) {
+    switchTab('memos');
+    selectMemo(filename);
+  }
+
+  // ── Audio helpers ──────────────────────────────────────────────────────────
+
+  function fmtTime(secs) {
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function renderTranscript(transcript, segments, filename) {
+    const body    = document.getElementById('transcript-body');
+    const wrap    = document.getElementById('audio-player-wrap');
+    const player  = document.getElementById('audio-player');
+
+    // Always wire up the audio player
+    player.src = `/api/audio/${encodeURIComponent(filename)}`;
+    wrap.style.display = 'flex';
+
+    if (segments && segments.length > 0) {
+      // Render clickable timestamp segments
+      body.style.whiteSpace = 'normal';
+      body.innerHTML = segments.map((seg, i) =>
+        `<span class="ts-segment" data-start="${seg.start}" data-idx="${i}" onclick="seekTo(${seg.start})">` +
+        `<span class="ts-time">${fmtTime(seg.start)}</span>${esc(seg.text)}</span>`
+      ).join('');
+
+      // Highlight active segment as audio plays
+      player.ontimeupdate = () => {
+        const t    = player.currentTime;
+        const segs = body.querySelectorAll('.ts-segment');
+        let active = null;
+        segments.forEach((seg, i) => {
+          if (t >= seg.start && t < seg.end) active = i;
+        });
+        segs.forEach((el, i) => el.classList.toggle('active', i === active));
+        // Auto-scroll active segment into view
+        if (active !== null) {
+          const el = segs[active];
+          if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      };
+    } else {
+      // No segments (old memo) — plain text fallback
+      body.style.whiteSpace = 'pre-wrap';
+      body.textContent = transcript;
+      player.ontimeupdate = null;
+    }
+  }
+
+  function seekTo(seconds) {
+    const player = document.getElementById('audio-player');
+    player.currentTime = seconds;
+    player.play();
+  }
+
   function showResults(data) {
     rawSummary    = data.summary    || '';
     rawTranscript = data.transcript || '';
 
     document.getElementById('summary-body').innerHTML = renderNotes(rawSummary);
-    document.getElementById('transcript-body').textContent = rawTranscript;
+    renderTranscript(rawTranscript, data.segments || [], data.filename || (selectedMemo && selectedMemo.filename) || '');
     document.getElementById('results-panel').style.display = 'block';
     document.getElementById('apple-badge').classList.toggle('show', !!data.apple_saved);
     document.getElementById('process-btn').textContent = '↺ Regenerate Notes';
@@ -565,6 +957,18 @@
     currentMode = mode;
     document.getElementById('opt-standard').classList.toggle('active', mode === 'standard');
     document.getElementById('opt-hedge_fund').classList.toggle('active', mode === 'hedge_fund');
+    // Update prompt viewer content and open it so the user can see the prompt
+    const display = document.getElementById('prompt-display');
+    if (display) display.value = PROMPTS[mode] || '';
+    document.getElementById('prompt-viewer').classList.add('open');
+    document.getElementById('prompt-toggle-label').textContent = 'Hide prompt';
+  }
+
+  function togglePromptViewer() {
+    const viewer = document.getElementById('prompt-viewer');
+    viewer.classList.toggle('open');
+    document.getElementById('prompt-toggle-label').textContent =
+      viewer.classList.contains('open') ? 'Hide prompt' : 'View prompt';
   }
 
   function setStep(id, state) {
@@ -584,7 +988,17 @@
     document.getElementById('results-panel').style.display  = 'none';
     document.getElementById('progress-bar').style.display = 'block';
     resetSteps();
-    setStep('step-transcribe', 'active');
+
+    // If the memo already has a transcript, skip step 1 — backend reuses the cache
+    const hasTranscript = selectedMemo.processed;
+    if (hasTranscript) {
+      document.getElementById('step-transcribe-label').textContent = 'Transcript loaded from cache ✓';
+      setStep('step-transcribe', 'done');
+      setStep('step-notes', 'active');
+    } else {
+      document.getElementById('step-transcribe-label').textContent = 'Transcribing with Whisper…';
+      setStep('step-transcribe', 'active');
+    }
 
     try {
       const customInstructions = document.getElementById('custom-instructions').value.trim();
@@ -595,14 +1009,16 @@
           note_type:            currentMode,
           add_to_notes:         document.getElementById('apple-toggle').checked,
           custom_instructions:  customInstructions,
-          force:                !!customInstructions  // always re-run if custom instructions given
+          force:                !!customInstructions
         })
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'Something went wrong.');
 
-      setStep('step-transcribe', 'done'); setStep('step-notes', 'active');
-      await delay(300);
+      if (!hasTranscript) {
+        setStep('step-transcribe', 'done'); setStep('step-notes', 'active');
+        await delay(300);
+      }
       setStep('step-notes', 'done'); setStep('step-save', 'active');
       await delay(300);
       setStep('step-save', 'done');
@@ -626,13 +1042,23 @@
   // ── Upload ──
 
   document.getElementById('upload-input').addEventListener('change', async e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append('audio', file);
-    await fetch('/api/upload', { method: 'POST', body: fd });
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+
+    // Upload all files first
+    await Promise.all(files.map(file => {
+      const fd = new FormData();
+      fd.append('audio', file);
+      return fetch('/api/upload', { method: 'POST', body: fd });
+    }));
     await loadMemos();
     e.target.value = '';
+
+    // Auto-process each uploaded file sequentially
+    for (const file of files) {
+      await selectMemo(file.name);
+      await processSelected();
+    }
   });
 
   // ── Copy / Download ──
@@ -655,6 +1081,194 @@
     const name = selectedMemo?.filename.replace(/\.[^.]+$/, '') || 'notes';
     a.href = url; a.download = `${name}-${which}.txt`; a.click();
     URL.revokeObjectURL(url);
+  }
+
+  // ── Rename ──
+
+  function startRename() {
+    if (!selectedMemo) return;
+    const h2      = document.getElementById('detail-title');
+    const current = h2.textContent;
+
+    // Replace h2 with an input
+    const input = document.createElement('input');
+    input.className = 'rename-input';
+    input.value     = current;
+    h2.replaceWith(input);
+    input.focus();
+    input.select();
+
+    async function commitRename() {
+      const newName = input.value.trim();
+      // Restore h2 regardless
+      const restored = document.createElement('h2');
+      restored.id        = 'detail-title';
+      restored.style.cssText = 'flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      input.replaceWith(restored);
+
+      if (!newName || newName === current) {
+        restored.textContent = current;
+        return;
+      }
+      restored.textContent = newName;
+      try {
+        await fetch(`/api/memo/${encodeURIComponent(selectedMemo.filename)}/rename`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ display_name: newName })
+        });
+        selectedMemo.display_name = newName;
+        renderMemoList();   // update sidebar label
+      } catch (e) {
+        restored.textContent = current;  // roll back on error
+      }
+    }
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); commitRename(); }
+      if (e.key === 'Escape') { input.value = current; commitRename(); }
+    });
+    input.addEventListener('blur', commitRename, { once: true });
+  }
+
+  // ── Delete ──
+
+  async function deleteMemo(e, filename) {
+    e.stopPropagation();   // don't trigger selectMemo
+    if (!confirm(`Delete "${filename}" from the tool?\n\nThis removes the file and all its notes from the database. Your original recording in Voice Memos is not affected.`)) return;
+
+    await fetch(`/api/memo/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+
+    // If this was the selected memo, go back to empty state
+    if (selectedMemo?.filename === filename) {
+      selectedMemo = null;
+      document.getElementById('detail-card').style.display  = 'none';
+      document.getElementById('empty-state').style.display  = '';
+    }
+    await loadMemos();
+  }
+
+  // ── Series ──
+
+  let allSeries = [];   // cached list of series from API
+
+  async function loadSeries() {
+    const res = await fetch('/api/series');
+    allSeries = await res.json();
+  }
+
+  function renderSeriesBar() {
+    if (!selectedMemo) return;
+    const inSeries = !!selectedMemo.series_id;
+    document.getElementById('series-bar').style.display     = inSeries ? '' : 'none';
+    document.getElementById('series-add-row').style.display = inSeries ? 'none' : '';
+
+    if (inSeries) {
+      const s = allSeries.find(x => x.id === selectedMemo.series_id);
+      document.getElementById('series-bar-name').textContent = s ? `📅 ${s.name}` : '📅 Series';
+      // Fetch position in series
+      fetch(`/api/series/${selectedMemo.series_id}`)
+        .then(r => r.json())
+        .then(data => {
+          const memos = data.memos || [];
+          const idx   = memos.findIndex(m => m.filename === selectedMemo.filename);
+          document.getElementById('series-bar-pos').textContent =
+            idx >= 0 ? `Meeting ${idx + 1} of ${memos.length}` : '';
+          document.getElementById('series-diff-btn').disabled = memos.filter(m => m.summary).length < 2;
+        });
+    }
+  }
+
+  function openSeriesLinker() {
+    // Populate dropdown
+    const sel = document.getElementById('series-select');
+    sel.innerHTML = '<option value="">— select an existing series —</option>'
+      + allSeries.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')
+      + '<option value="__new__">+ Create new series…</option>';
+    document.getElementById('series-new-name').style.display = 'none';
+    document.getElementById('series-linker').classList.add('open');
+    document.getElementById('series-add-row').style.display = 'none';
+  }
+
+  function closeSeriesLinker() {
+    document.getElementById('series-linker').classList.remove('open');
+    document.getElementById('series-add-row').style.display =
+      selectedMemo?.series_id ? 'none' : '';
+  }
+
+  function onSeriesSelectChange() {
+    const val = document.getElementById('series-select').value;
+    document.getElementById('series-new-name').style.display = val === '__new__' ? '' : 'none';
+  }
+
+  async function saveSeries() {
+    if (!selectedMemo) return;
+    let series_id;
+    const val = document.getElementById('series-select').value;
+
+    if (val === '__new__') {
+      const name = document.getElementById('series-new-name').value.trim();
+      if (!name) { alert('Please enter a series name.'); return; }
+      const res  = await fetch('/api/series', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      if (data.error) { alert(data.error); return; }
+      series_id = data.id;
+      await loadSeries();
+    } else if (val) {
+      series_id = parseInt(val);
+    } else {
+      alert('Please select or create a series.'); return;
+    }
+
+    await fetch(`/api/memo/${encodeURIComponent(selectedMemo.filename)}/series`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ series_id })
+    });
+    selectedMemo.series_id = series_id;
+    closeSeriesLinker();
+    renderSeriesBar();
+    renderMemoList();
+  }
+
+  async function unlinkSeries() {
+    if (!selectedMemo) return;
+    if (!confirm('Remove this memo from its series?')) return;
+    await fetch(`/api/memo/${encodeURIComponent(selectedMemo.filename)}/series`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ series_id: null })
+    });
+    selectedMemo.series_id = null;
+    document.getElementById('diff-section').style.display = 'none';
+    renderSeriesBar();
+    renderMemoList();
+  }
+
+  async function generateDiff() {
+    if (!selectedMemo?.series_id) return;
+    const btn = document.getElementById('series-diff-btn');
+    btn.disabled = true;
+    btn.textContent = 'Comparing…';
+    document.getElementById('diff-section').style.display = 'none';
+
+    try {
+      const res  = await fetch(`/api/series/${selectedMemo.series_id}/diff`, { method: 'POST' });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      document.getElementById('diff-section-title').textContent = `${data.series_name} — Comparison`;
+      document.getElementById('diff-section-meta').textContent  = `${data.n_meetings} meetings`;
+      document.getElementById('diff-body').innerHTML = marked.parse(data.diff || '');
+      document.getElementById('diff-section').style.display = '';
+      document.getElementById('diff-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (err) {
+      alert('Comparison failed: ' + err.message);
+    }
+
+    btn.disabled = false;
+    btn.textContent = '⚡ Compare meetings';
   }
 
   // ── Tab switching ──
@@ -721,7 +1335,7 @@
 
       // Assistant bubble
       msgBox.insertAdjacentHTML('beforeend',
-        `<div class="chat-msg assistant">${esc(answer)}</div>`);
+        `<div class="chat-msg assistant">${renderChat(answer)}</div>`);
 
       // Save to history for multi-turn
       chatHistory.push({ role: 'user',      content: q });

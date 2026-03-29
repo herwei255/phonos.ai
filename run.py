@@ -4,7 +4,7 @@ run.py — Entry point.
   Production: gunicorn run:app --bind 0.0.0.0:$PORT --timeout 300 --workers 1
 """
 from flask import Flask
-from config import MAX_UPLOAD_BYTES, PORT, SECRET_KEY
+from config import MAX_UPLOAD_BYTES, PORT, SECRET_KEY, IS_MACOS
 import db
 import routes
 
@@ -17,6 +17,11 @@ db.init_db()
 
 # Register all routes (includes auth middleware)
 app.register_blueprint(routes.bp)
+
+# Start iCloud/folder auto-watcher (macOS only, silently skipped elsewhere)
+if IS_MACOS:
+    import watcher
+    watcher.start()
 
 # Global JSON error handlers
 @app.errorhandler(Exception)
@@ -35,11 +40,13 @@ def handle_404(e):
 if __name__ == "__main__":
     db.init_db()
     print()
-    print("  🎙️  Meeting Notes Tool")
+    print("  🎙️  Phonos.ai")
     print("  ──────────────────────────────────────")
-    from config import VOICE_MEMOS_DIR, DB_PATH
+    from config import VOICE_MEMOS_DIR, DB_PATH, WATCH_FOLDER
     print(f"  Voice memos:  {VOICE_MEMOS_DIR}")
     print(f"  Database:     {DB_PATH}")
+    if IS_MACOS and WATCH_FOLDER:
+        print(f"  Watching:     {WATCH_FOLDER}")
     print(f"  Open:         http://localhost:{PORT}")
     print()
     app.run(debug=False, port=PORT)

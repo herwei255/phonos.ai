@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Meeting Notes Tool — Sign In</title>
+  <title>Phonos.ai — Sign In</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -16,8 +16,15 @@
       padding: 40px 36px; width: 100%; max-width: 380px;
       box-shadow: 0 4px 24px rgba(0,0,0,.06);
     }
-    .icon { font-size: 2.4rem; margin-bottom: 12px; }
-    h1 { font-size: 1.25rem; font-weight: 700; color: #18181b; margin-bottom: 4px; }
+    .brand-icon {
+      width: 48px; height: 48px; margin: 0 auto 14px;
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      border-radius: 14px; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(99,102,241,.35);
+    }
+    .brand-icon svg { display: block; }
+    h1 { font-size: 1.5rem; font-weight: 800; color: #18181b; margin-bottom: 4px; letter-spacing: -0.5px; }
+    h1 span { color: #6366f1; }
     .sub { font-size: 0.85rem; color: #71717a; margin-bottom: 28px; }
     label {
       display: block; font-size: 0.78rem; font-weight: 600; color: #3f3f46; margin-bottom: 6px;
@@ -42,8 +49,17 @@
 </head>
 <body>
   <div class="card">
-    <div class="icon">🎙️</div>
-    <h1>Meeting Notes Tool</h1>
+    <div class="brand-icon">
+      <svg width="28" height="28" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1"  y="8"  width="2" height="4" rx="1" fill="white" opacity="0.6"/>
+        <rect x="4"  y="5"  width="2" height="10" rx="1" fill="white" opacity="0.8"/>
+        <rect x="7"  y="3"  width="2" height="14" rx="1" fill="white"/>
+        <rect x="10" y="5"  width="2" height="10" rx="1" fill="white" opacity="0.8"/>
+        <rect x="13" y="7"  width="2" height="6"  rx="1" fill="white" opacity="0.7"/>
+        <rect x="16" y="9"  width="2" height="2"  rx="1" fill="white" opacity="0.5"/>
+      </svg>
+    </div>
+    <h1>phonos<span>.ai</span></h1>
     <div class="sub">Enter your password to continue</div>
 
     {% if error %}

@@ -6,7 +6,7 @@ To swap models: change SUMMARIZER_MODEL in config.py.
 from datetime import datetime
 from openai import OpenAI
 from config import OPENROUTER_API_KEY, SUMMARIZER_MODEL
-from prompts import PROMPT_REGISTRY
+from prompts import PROMPT_REGISTRY, DIFF_PROMPT
 
 
 def generate(transcript: str, note_type: str = "standard", custom_instructions: str = "") -> str:
@@ -48,6 +48,51 @@ def generate(transcript: str, note_type: str = "standard", custom_instructions: 
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3,
         max_tokens=3000
+    )
+    return response.choices[0].message.content
+
+
+def generate_diff(series_name: str, meetings: list[dict]) -> str:
+    """Generate a 'what changed?' comparison brief for a recurring meeting series.
+
+    Args:
+        series_name: Display name of the series (e.g. "Edelweiss SIF Quarterly").
+        meetings:    List of memo dicts sorted by file_date ASC, each containing
+                     at minimum 'file_date', 'summary', and 'display_name'/'filename'.
+
+    Returns:
+        Formatted diff brief as a plain text string.
+    """
+    if len(meetings) < 2:
+        raise ValueError("Need at least 2 meetings to generate a comparison.")
+
+    blocks = []
+    for i, m in enumerate(meetings, 1):
+        label = m.get("display_name") or m.get("filename", f"Meeting {i}")
+        date  = (m.get("file_date") or "")[:10]
+        summary = (m.get("summary") or "").strip()
+        blocks.append(f"MEETING {i}: {label}  ({date})\n{summary}")
+
+    meetings_block = "\n\n---\n\n".join(blocks)
+    dates          = [(m.get("file_date") or "")[:10] for m in meetings]
+    date_range     = f"{dates[0]} → {dates[-1]}"
+
+    prompt = DIFF_PROMPT.format(
+        series_name    = series_name,
+        n_meetings     = len(meetings),
+        meetings_block = meetings_block,
+        date_range     = date_range,
+    )
+
+    client = OpenAI(
+        api_key=OPENROUTER_API_KEY,
+        base_url="https://openrouter.ai/api/v1"
+    )
+    response = client.chat.completions.create(
+        model=SUMMARIZER_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.3,
+        max_tokens=2000,
     )
     return response.choices[0].message.content
 

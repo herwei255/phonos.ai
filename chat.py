@@ -1,90 +1,218 @@
 """
-chat.py — Chat-with-your-notes feature.
-Builds a context window from all stored summaries and sends the user's
-question to DeepSeek via OpenRouter. Answers are grounded in your notes only.
+chat.py — Multi-turn Q&A across all processed meeting notes.
+
+Context strategy (designed to balance detail vs. token cost):
+────────────────────────────────────────────────────────────
+  1. Summaries for ALL memos — always included.
+     Compact (~200 tokens each), give the model a complete map of everything.
+
+  2. Transcript excerpts for the TOP 2 most relevant memos only.
+     Relevance is scored by keyword overlap between the question and each
+     memo's filename + summary. For each top memo we extract sliding windows
+     (~600 chars) around every keyword match in the raw transcript, merge
+     overlapping windows, and cap at 3 excerpts per memo.
+
+     This means specific factual questions ("what is the fund manager's name?",
+     "what return did they generate in 2025?") find the answer in the raw
+     transcript without sending 50,000 tokens of audio transcription to the API.
+
+Token budget (rough):
+  • N memos × ~200 tokens (summary)    = O(N × 200)
+  • 2 memos × 3 excerpts × ~150 tokens = ~900 tokens
+  • Total stays well under 8,000 tokens for typical usage.
 """
-from datetime import datetime
+import re
 from openai import OpenAI
 from config import OPENROUTER_API_KEY, SUMMARIZER_MODEL
 import db
 
-SYSTEM_PROMPT = """You are a personal assistant with access to a collection of meeting notes and voice recordings.
+SYSTEM_PROMPT = """You are a personal assistant with access to meeting notes and transcripts.
 
-Your job is to answer questions based ONLY on the notes provided. When answering:
-- Be concise and direct.
-- Reference the specific meeting or recording title when citing information.
-- If the answer spans multiple meetings, list each source clearly.
-- If the information is not in any of the notes, say so plainly — do not guess or hallucinate.
-- Format any lists or structured answers cleanly."""
+For each memo you receive:
+  • SUMMARY — a structured digest of the meeting's key points
+  • TRANSCRIPT EXCERPTS — snippets of the actual spoken words, pulled from the
+    section of the recording most relevant to the current question
+
+The transcript excerpts are the ground truth. When the summary and the transcript
+disagree, trust the transcript. When looking for specific facts — names, numbers,
+fund performance figures, dates — always check the transcript excerpts first.
+
+Rules:
+  • Always cite which memo/recording you are drawing from.
+  • If the answer is not in the provided context, say so clearly. Do not guess.
+  • Keep answers concise but complete.
+"""
 
 
-def build_context(memos: list[dict]) -> str:
-    """Build a readable context block from all processed memos."""
-    if not memos:
-        return "No meeting notes have been processed yet."
+# ── Keyword extraction ────────────────────────────────────────────────────────
 
-    parts = []
-    for m in memos:
-        if not m.get("summary"):
-            continue
-        date_str = ""
-        if m.get("file_date"):
-            try:
-                d = datetime.fromisoformat(m["file_date"])
-                date_str = d.strftime("%b %d, %Y at %I:%M %p")
-            except Exception:
-                date_str = m["file_date"]
+_STOP = {
+    "what", "who", "when", "where", "how", "why", "did", "does", "is", "are",
+    "was", "were", "the", "a", "an", "in", "of", "for", "to", "and", "or",
+    "but", "you", "your", "me", "my", "their", "his", "her", "its", "this",
+    "that", "these", "those", "which", "with", "about", "from", "into", "than",
+    "then", "tell", "can", "will", "would", "could", "should", "have", "has",
+    "had", "been", "being", "do", "get", "got", "make", "made", "any", "give",
+    "just", "also", "more", "very", "much", "many", "some", "such", "like",
+    "use", "used", "using", "based", "per",
+}
 
-        parts.append(
-            f"---\n"
-            f"RECORDING: {m['filename']}\n"
-            f"DATE: {date_str}\n"
-            f"TYPE: {'Hedge Fund' if m.get('note_type') == 'hedge_fund' else 'Standard'}\n\n"
-            f"{m['summary'].strip()}"
-        )
 
-    if not parts:
-        return "No summaries available yet — process some voice memos first."
+def _keywords(text: str) -> list[str]:
+    """Return meaningful words from text, lowercased, stop-words removed."""
+    words = re.findall(r"\b[a-zA-Z]{3,}\b", text)
+    return [w.lower() for w in words if w.lower() not in _STOP]
+
+
+# ── Relevance scoring ─────────────────────────────────────────────────────────
+
+def _score_memo(memo: dict, kws: list[str]) -> int:
+    """Count keyword hits in filename + summary (fast proxy for relevance)."""
+    haystack = (memo.get("filename", "") + " " + memo.get("summary", "")).lower()
+    return sum(haystack.count(kw) for kw in kws)
+
+
+# ── Transcript excerpt extraction ─────────────────────────────────────────────
+
+def _excerpt(transcript: str, kws: list[str],
+             window: int = 600, max_chunks: int = 3) -> str:
+    """Return up to max_chunks keyword-centred windows from transcript.
+
+    Each window is window characters wide. Overlapping windows are merged.
+    Falls back to the first window characters if no keyword is found.
+    """
+    if not transcript:
+        return ""
+    if not kws:
+        return transcript[:window]
+
+    text_lower = transcript.lower()
+    half = window // 2
+
+    # Collect all match positions, sorted
+    positions: list[int] = []
+    for kw in kws:
+        for m in re.finditer(r"\b" + re.escape(kw) + r"\b", text_lower):
+            positions.append(m.start())
+    positions = sorted(set(positions))
+
+    if not positions:
+        return transcript[:window]
+
+    # Merge overlapping windows
+    merged: list[tuple[int, int]] = []
+    cur_s = max(0, positions[0] - half)
+    cur_e = min(len(transcript), positions[0] + half)
+    for pos in positions[1:]:
+        s = max(0, pos - half)
+        e = min(len(transcript), pos + half)
+        if s <= cur_e:          # overlapping — extend current window
+            cur_e = max(cur_e, e)
+        else:
+            merged.append((cur_s, cur_e))
+            cur_s, cur_e = s, e
+        if len(merged) >= max_chunks:
+            break
+    merged.append((cur_s, cur_e))
+
+    parts: list[str] = []
+    for s, e in merged[:max_chunks]:
+        chunk = transcript[s:e].strip()
+        if s > 0:
+            chunk = "…" + chunk
+        if e < len(transcript):
+            chunk = chunk + "…"
+        parts.append(chunk)
 
     return "\n\n".join(parts)
 
 
+# ── Context builder ───────────────────────────────────────────────────────────
+
+TOP_N_TRANSCRIPTS = 2   # include transcript excerpts for this many top memos
+
+
+def _build_context(memos: list[dict], question: str) -> str:
+    """Build the context block sent to the model.
+
+    All memos contribute a summary.
+    The TOP_N_TRANSCRIPTS most question-relevant memos also contribute
+    keyword-matched transcript excerpts.
+    """
+    if not memos:
+        return "No processed meeting notes available yet."
+
+    kws = _keywords(question)
+
+    # Rank by relevance score (desc). ISO date strings sort correctly as-is,
+    # so equal-score memos are ordered oldest-first as a tiebreaker (harmless).
+    ranked = sorted(
+        [m for m in memos if m.get("summary")],
+        key=lambda m: (-_score_memo(m, kws), m.get("file_date") or ""),
+    )
+
+    sections: list[str] = []
+    for idx, memo in enumerate(ranked):
+        fname      = memo.get("filename", "Unknown")
+        date       = (memo.get("file_date") or "")[:10]
+        ntype      = memo.get("note_type", "standard")
+        summary    = (memo.get("summary") or "").strip()
+        transcript = (memo.get("transcript") or "").strip()
+
+        header = f"### Memo: {fname}  |  {date}  |  type: {ntype}"
+
+        if idx < TOP_N_TRANSCRIPTS and transcript and kws:
+            ex = _excerpt(transcript, kws)
+            sections.append(
+                f"{header}\n\n**SUMMARY:**\n{summary}"
+                f"\n\n**TRANSCRIPT EXCERPTS** (sections most relevant to your question):\n{ex}"
+            )
+        else:
+            sections.append(f"{header}\n\n**SUMMARY:**\n{summary}")
+
+    return "\n\n---\n\n".join(sections)
+
+
+# ── Public API ────────────────────────────────────────────────────────────────
+
+MAX_HISTORY = 20   # keep last 20 messages (10 turns) to bound payload size
+
+
 def answer(question: str, history: list[dict] | None = None) -> str:
-    """Answer a question grounded in all stored meeting notes.
+    """Answer question using all processed meeting notes as context.
 
     Args:
         question: The user's question.
-        history:  Optional list of previous messages for multi-turn chat.
-                  Each item: {"role": "user"|"assistant", "content": "..."}
+        history:  Optional list of prior {role, content} dicts for multi-turn chat.
 
     Returns:
         The assistant's answer as a string.
     """
     memos   = db.list_memos()
-    context = build_context(memos)
+    context = _build_context(memos, question)
 
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {
-            "role": "system",
-            "content": f"Here are all the meeting notes you have access to:\n\n{context}"
-        }
-    ]
+    system_with_context = (
+        SYSTEM_PROMPT.strip()
+        + "\n\n---\n\n# YOUR MEETING NOTES & TRANSCRIPTS\n\n"
+        + context
+    )
 
-    # Include prior turns for multi-turn conversation
+    messages: list[dict] = [{"role": "system", "content": system_with_context}]
+
+    # Append prior turns, capped to control payload size
     if history:
-        messages.extend(history)
+        messages.extend(history[-MAX_HISTORY:])
 
     messages.append({"role": "user", "content": question})
 
     client = OpenAI(
         api_key=OPENROUTER_API_KEY,
-        base_url="https://openrouter.ai/api/v1"
+        base_url="https://openrouter.ai/api/v1",
     )
     response = client.chat.completions.create(
         model=SUMMARIZER_MODEL,
         messages=messages,
-        temperature=0.3,
-        max_tokens=1500
+        temperature=0.2,
+        max_tokens=1500,
     )
     return response.choices[0].message.content

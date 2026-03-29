@@ -37,10 +37,17 @@ def compress_audio(src_path: str) -> str:
     return tmp.name
 
 
-def transcribe(file_path: str) -> str:
+def transcribe(file_path: str) -> dict:
     """Transcribe an audio file using Groq Whisper.
     Automatically compresses the file if it exceeds GROQ_MAX_BYTES.
-    Returns the transcript as a plain string.
+
+    Returns a dict:
+        {
+            "text":     str,           # full transcript as plain text
+            "segments": list[dict],    # [{id, start, end, text}, …]
+        }
+    Segments carry timestamps for in-app audio seek. Falls back to
+    {"text": ..., "segments": []} if verbose_json is unavailable.
     """
     compressed_path = None
     send_path = file_path
@@ -58,9 +65,27 @@ def transcribe(file_path: str) -> str:
             result = client.audio.transcriptions.create(
                 model=WHISPER_MODEL,
                 file=audio_file,
-                response_format="text"
+                response_format="verbose_json",
             )
-        return result
+
+        # Groq returns a Transcription object with .text and .segments
+        segments = []
+        raw_segs = getattr(result, "segments", None) or []
+        for s in raw_segs:
+            # s may be a dict or an object depending on SDK version
+            if isinstance(s, dict):
+                segments.append({"id": s.get("id", 0),
+                                  "start": s.get("start", 0.0),
+                                  "end":   s.get("end",   0.0),
+                                  "text":  s.get("text",  "").strip()})
+            else:
+                segments.append({"id":    getattr(s, "id",    0),
+                                  "start": getattr(s, "start", 0.0),
+                                  "end":   getattr(s, "end",   0.0),
+                                  "text":  getattr(s, "text",  "").strip()})
+
+        return {"text": result.text, "segments": segments}
+
     finally:
         if compressed_path:
             try:

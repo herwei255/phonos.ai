@@ -28,7 +28,8 @@ AUDIO_EXTENSIONS = {".m4a", ".mp3", ".wav", ".ogg", ".webm", ".mp4", ".caf", ".a
 GROQ_MAX_BYTES   = 20 * 1024 * 1024   # 20 MB — safely under Groq's 25 MB limit
 
 # ── Apple Notes ───────────────────────────────────────────────────────────────
-APPLE_NOTES_FOLDER = "Voice Notes"
+APPLE_NOTES_FOLDER       = "Voice Notes"
+APPLE_TRANSCRIPTS_FOLDER = "Voice Transcripts"   # raw audio transcripts
 
 # ── Flask ─────────────────────────────────────────────────────────────────────
 MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB
@@ -37,6 +38,15 @@ PORT             = int(os.getenv("PORT", 5000))
 # ── Platform ──────────────────────────────────────────────────────────────────
 import sys
 IS_MACOS = sys.platform == "darwin"   # Apple Notes only works on macOS
+
+# ── iCloud Auto-Watch ────────────────────────────────────────────────────────
+# Set WATCH_FOLDER in .env to the folder you want monitored for new audio files.
+# Default is the iCloud Voice Memos recordings folder on macOS.
+# Set to empty string "" to disable auto-watch entirely.
+_DEFAULT_WATCH = os.path.expanduser(
+    "~/Library/Group Containers/group.com.apple.VoiceMemos.shared/Recordings"
+) if sys.platform == "darwin" else ""
+WATCH_FOLDER = os.getenv("WATCH_FOLDER", _DEFAULT_WATCH)
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 # Set APP_PASSWORD in env to enable password protection.
