@@ -12,9 +12,9 @@ import transcriber
 import summarizer
 import apple_notes
 import chat
+from werkzeug.security import generate_password_hash, check_password_hash
 from config import (VOICE_MEMOS_DIR, AUDIO_EXTENSIONS,
-                    APP_PASSWORD, GOOGLE_CLIENT_ID, IS_MACOS,
-                    AUDIO_KEEP_MAX_MB)
+                    IS_MACOS, AUDIO_KEEP_MAX_MB)
 from prompts import PROMPT_REGISTRY
 
 bp = Blueprint("main", __name__)
@@ -22,8 +22,7 @@ bp = Blueprint("main", __name__)
 # Endpoints that don't require authentication
 _AUTH_EXEMPT = {
     "main.index",   # serves landing page to unauthenticated visitors
-    "main.login", "main.logout",
-    "main.auth_google", "main.auth_callback", "main.auth_local",
+    "main.login", "main.logout", "main.register",
     "static",
 }
 
@@ -36,18 +35,9 @@ def _uid() -> int:
 
 
 def _user_dir() -> str:
-    """Return the voice memos folder for the current user.
-
-    - Password / single-user mode (no GOOGLE_CLIENT_ID): flat VOICE_MEMOS_DIR,
-      same as before the multi-user rewrite — existing files stay untouched.
-    - Google OAuth / multi-user mode: VOICE_MEMOS_DIR/<user_id>/
-    """
-    if not GOOGLE_CLIENT_ID:
-        os.makedirs(VOICE_MEMOS_DIR, exist_ok=True)
-        return VOICE_MEMOS_DIR
-    d = os.path.join(VOICE_MEMOS_DIR, str(_uid()))
-    os.makedirs(d, exist_ok=True)
-    return d
+    """Return the voice memos folder (single-user, flat directory)."""
+    os.makedirs(VOICE_MEMOS_DIR, exist_ok=True)
+    return VOICE_MEMOS_DIR
 
 
 # ── Auth middleware ────────────────────────────────────────────────────────────
@@ -73,27 +63,24 @@ def login():
     if session.get("user_id"):
         return redirect(url_for("main.index"))
 
-    if GOOGLE_CLIENT_ID:
-        # Show Google sign-in; on localhost also offer the "Use Local" bypass
-        return render_template("login.html",
-                               use_google=True,
-                               show_local=_is_local(),
-                               error=None)
+    # No accounts exist yet → send to register first
+    if not db.username_exists():
+        return redirect(url_for("main.register"))
 
-    # Password mode
-    if not APP_PASSWORD:
-        # Auth disabled entirely — auto-login as local user
-        session["user_id"] = 1
-        return redirect(url_for("main.index"))
-
+    error = None
     if request.method == "POST":
-        if request.form.get("password") == APP_PASSWORD:
-            session["user_id"] = 1
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        user = db.get_user_by_username(username)
+        if user and check_password_hash(user["password_hash"], password):
+            session["user_id"]    = user["id"]
+            session["user_name"]  = user["username"]
+            session["user_email"] = user.get("email") or ""
+            session["user_pic"]   = user.get("picture") or ""
             return redirect(url_for("main.index"))
-        return render_template("login.html", use_google=False,
-                               show_local=False,
-                               error="Incorrect password — try again.")
-    return render_template("login.html", use_google=False, show_local=False, error=None)
+        error = "Incorrect username or password — try again."
+
+    return render_template("login.html", error=error)
 
 
 @bp.route("/logout")
@@ -102,47 +89,29 @@ def logout():
     return redirect(url_for("main.login"))
 
 
-# ── Local auth bypass (localhost only) ───────────────────────────────────────
+@bp.route("/register", methods=["GET", "POST"])
+def register():
+    if session.get("user_id"):
+        return redirect(url_for("main.index"))
 
-@bp.route("/auth/local")
-def auth_local():
-    """Skip OAuth and log in as the local user (user_id=1).
-    Only works on localhost — blocked on any other host.
-    """
-    if not _is_local():
-        return "Not available on the hosted version.", 403
-    session["user_id"]    = 1
-    session["user_name"]  = "Local"
-    session["user_email"] = ""
-    session["user_pic"]   = ""
-    return redirect(url_for("main.index"))
+    error = None
+    if request.method == "POST":
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        if not username or not password:
+            error = "Username and password are required."
+        else:
+            user = db.register_user(username, generate_password_hash(password))
+            if user is None:
+                error = "That username is already taken."
+            else:
+                session["user_id"]   = user["id"]
+                session["user_name"] = user["username"]
+                session["user_email"] = ""
+                session["user_pic"]   = ""
+                return redirect(url_for("main.index"))
 
-
-# ── Google OAuth ──────────────────────────────────────────────────────────────
-
-@bp.route("/auth/google")
-def auth_google():
-    from oauth_client import oauth
-    redirect_uri = url_for("main.auth_callback", _external=True)
-    return oauth.google.authorize_redirect(redirect_uri)
-
-
-@bp.route("/auth/google/callback")
-def auth_callback():
-    from oauth_client import oauth
-    token    = oauth.google.authorize_access_token()
-    userinfo = token.get("userinfo") or {}
-    user = db.get_or_create_user(
-        google_id=userinfo.get("sub", ""),
-        email=userinfo.get("email", ""),
-        name=userinfo.get("name"),
-        picture=userinfo.get("picture"),
-    )
-    session["user_id"]    = user["id"]
-    session["user_name"]  = user["name"] or user["email"]
-    session["user_email"] = user["email"]
-    session["user_pic"]   = user.get("picture") or ""
-    return redirect(url_for("main.index"))
+    return render_template("register.html", error=error)
 
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
@@ -152,12 +121,9 @@ def auth_callback():
 def index():
     # Not logged in → landing page on web, straight to login on localhost
     if not session.get("user_id"):
-        host = request.host.split(":")[0]
-        is_local = host in ("localhost", "127.0.0.1")
-        if is_local:
+        if _is_local():
             return redirect(url_for("main.login"))
-        use_google = bool(GOOGLE_CLIENT_ID)
-        return render_template("landing.html", use_google=use_google)
+        return render_template("landing.html")
 
     import json
     display_prompts = {}

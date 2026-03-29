@@ -7,7 +7,6 @@ from flask import Flask
 from config import MAX_UPLOAD_BYTES, PORT, SECRET_KEY, IS_MACOS
 import db
 import routes
-from oauth_client import init_oauth
 
 app = Flask(__name__, template_folder="templates")
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
@@ -20,9 +19,6 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Init DB at module level so gunicorn picks it up without __main__
 db.init_db()
-
-# Register Google OAuth (no-op if GOOGLE_CLIENT_ID is not set)
-init_oauth(app)
 
 # Register all routes (includes auth middleware)
 app.register_blueprint(routes.bp)

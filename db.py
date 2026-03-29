@@ -23,20 +23,30 @@ def init_db() -> None:
     # ── Users ──────────────────────────────────────────────────────────────────
     conn.execute("""
         CREATE TABLE IF NOT EXISTS users (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            google_id  TEXT UNIQUE NOT NULL,
-            email      TEXT NOT NULL,
-            name       TEXT,
-            picture    TEXT,
-            created_at TEXT
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            google_id     TEXT UNIQUE,
+            email         TEXT,
+            name          TEXT,
+            picture       TEXT,
+            username      TEXT,
+            password_hash TEXT,
+            created_at    TEXT
         )
     """)
 
-    # Local fallback user (id=1) — used in password-auth / single-user mode.
+    # Local fallback user (id=1) — all data lives here in single-user mode.
     conn.execute("""
         INSERT OR IGNORE INTO users (id, google_id, email, name, created_at)
         VALUES (1, 'local', 'local@phonos.ai', 'Local User', ?)
     """, (datetime.now().isoformat(),))
+
+    # Migration: add username/password_hash columns if they don't exist yet
+    user_cols = {row[1] for row in conn.execute("PRAGMA table_info(users)")}
+    if "username" not in user_cols:
+        conn.execute("ALTER TABLE users ADD COLUMN username TEXT")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL")
+    if "password_hash" not in user_cols:
+        conn.execute("ALTER TABLE users ADD COLUMN password_hash TEXT")
 
     # ── Series ─────────────────────────────────────────────────────────────────
     conn.execute("""
@@ -150,6 +160,51 @@ def init_db() -> None:
 
 
 # ── Users ──────────────────────────────────────────────────────────────────────
+
+def register_user(username: str, password_hash: str) -> dict | None:
+    """Create a new user. First registration claims user_id=1 (preserves existing data).
+    Returns the user dict, or None if username already taken."""
+    conn = _connect()
+    try:
+        # If user_id=1 has no username yet, claim it (so existing data is preserved)
+        existing = conn.execute(
+            "SELECT id FROM users WHERE id = 1 AND username IS NULL"
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE users SET username = ?, password_hash = ?, name = ? WHERE id = 1",
+                (username, password_hash, username)
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM users WHERE id = 1").fetchone()
+        else:
+            cur = conn.execute(
+                "INSERT INTO users (username, password_hash, name, created_at) VALUES (?, ?, ?, ?)",
+                (username, password_hash, username, datetime.now().isoformat())
+            )
+            conn.commit()
+            row = conn.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
+        return dict(row)
+    except sqlite3.IntegrityError:
+        return None  # username already taken
+    finally:
+        conn.close()
+
+
+def get_user_by_username(username: str) -> dict | None:
+    conn = _connect()
+    row = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def username_exists() -> bool:
+    """Returns True if at least one user has registered (has a username set)."""
+    conn = _connect()
+    row = conn.execute("SELECT 1 FROM users WHERE username IS NOT NULL LIMIT 1").fetchone()
+    conn.close()
+    return row is not None
+
 
 def get_or_create_user(google_id: str, email: str,
                         name: str | None = None,
