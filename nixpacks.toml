@@ -1,0 +1,4 @@
+# Tells Railway's Nixpacks builder to install ffmpeg
+# (needed to compress large audio files before sending to Groq)
+[phases.setup]
+nixPkgs = ["ffmpeg"]
