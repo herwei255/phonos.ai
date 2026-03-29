@@ -6,7 +6,7 @@ DATE: {date}
 TITLE: [infer a short descriptive title from the content]
 
 SUMMARY
-[2-4 sentences capturing the main topic and key takeaways]
+[A concise overview of the main topic and key takeaways — as long as needed, no longer]
 
 KEY POINTS
 - [important point or idea]

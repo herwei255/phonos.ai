@@ -44,7 +44,11 @@ def generate(transcript: str, note_type: str = "standard", custom_instructions: 
     prompt = prompt_template.format(**fmt_kwargs)
 
     if custom_instructions:
-        prompt += f"\n\nADDITIONAL INSTRUCTIONS FROM USER:\n{custom_instructions}"
+        prompt += (
+            f"\n\nOVERRIDE INSTRUCTIONS (take priority over everything above):\n"
+            f"{custom_instructions}\n"
+            f"Apply these override instructions strictly. If they conflict with the format rules above, follow the override."
+        )
 
     client = OpenAI(
         api_key=OPENROUTER_API_KEY,

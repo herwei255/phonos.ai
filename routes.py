@@ -21,6 +21,7 @@ bp = Blueprint("main", __name__)
 
 # Endpoints that don't require authentication
 _AUTH_EXEMPT = {
+    "main.index",   # serves landing page to unauthenticated visitors
     "main.login", "main.logout",
     "main.auth_google", "main.auth_callback",
     "main.home", "static",
@@ -68,8 +69,8 @@ def login():
         return redirect(url_for("main.index"))
 
     if GOOGLE_CLIENT_ID:
-        # Google OAuth mode — just show the button
-        return render_template("login.html", use_google=True, error=None)
+        # Google OAuth mode — landing page is the entry point, send them there
+        return redirect(url_for("main.index"))
 
     # Password mode
     if not APP_PASSWORD:
@@ -128,6 +129,11 @@ def home():
 
 @bp.route("/")
 def index():
+    # Not logged in → show landing page
+    if not session.get("user_id"):
+        use_google = bool(GOOGLE_CLIENT_ID)
+        return render_template("landing.html", use_google=use_google)
+
     import json
     display_prompts = {}
     for key, tpl in PROMPT_REGISTRY.items():
