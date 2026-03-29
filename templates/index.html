@@ -671,8 +671,11 @@
     <div class="sidebar-upload">
       <label class="upload-btn">
         + Upload Voice Memo
-        <input type="file" id="upload-input" accept="audio/*,.m4a,.mp3,.wav,.ogg,.webm,.mp4,.qta" multiple />
+        <input type="file" id="upload-input" accept="audio/*,.m4a,.mp3,.wav,.ogg,.webm,.mp4,.qta" multiple onchange="checkUploadSize(this)" />
       </label>
+      <div id="upload-size-warn" style="display:none;margin-top:8px;padding:7px 10px;background:#fef3c7;border:1px solid #fcd34d;border-radius:7px;font-size:0.72rem;color:#92400e;line-height:1.5;">
+        ⚠️ Files over 100 MB won't be saved after transcription — audio playback won't be available for those memos.
+      </div>
     </div>
   </div>
 
@@ -1558,6 +1561,13 @@
 
     document.getElementById('chat-send').disabled = false;
     msgBox.scrollTop = msgBox.scrollHeight;
+  }
+
+  // Warn when any selected file exceeds 50 MB (will be deleted post-transcription at 100 MB)
+  function checkUploadSize(input) {
+    const WARN_MB = 50;
+    const hasLarge = Array.from(input.files).some(f => f.size > WARN_MB * 1024 * 1024);
+    document.getElementById('upload-size-warn').style.display = hasLarge ? 'block' : 'none';
   }
 
   // Auto-grow textarea

@@ -13,6 +13,11 @@ app = Flask(__name__, template_folder="templates")
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 app.secret_key = SECRET_KEY
 
+# Trust Railway's reverse proxy so Flask sees https:// in url_for() calls.
+# This makes the Google OAuth redirect_uri use https:// instead of http://.
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
 # Init DB at module level so gunicorn picks it up without __main__
 db.init_db()
 

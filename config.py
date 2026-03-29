@@ -27,6 +27,10 @@ DB_PATH         = os.getenv("DB_PATH", os.path.join(BASE_DIR, "memos.db"))
 AUDIO_EXTENSIONS = {".m4a", ".mp3", ".wav", ".ogg", ".webm", ".mp4", ".caf", ".aac", ".flac", ".qta"}
 GROQ_MAX_BYTES   = 20 * 1024 * 1024   # 20 MB — safely under Groq's 25 MB limit
 
+# Audio files larger than this are deleted after transcription to save storage.
+# Set to 0 to never delete, or a higher value to keep more files.
+AUDIO_KEEP_MAX_MB = int(os.getenv("AUDIO_KEEP_MAX_MB", 100))
+
 # ── Apple Notes ───────────────────────────────────────────────────────────────
 APPLE_NOTES_FOLDER       = "Voice Notes"
 APPLE_TRANSCRIPTS_FOLDER = "Voice Transcripts"   # raw audio transcripts

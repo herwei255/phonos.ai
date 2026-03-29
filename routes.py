@@ -13,7 +13,8 @@ import summarizer
 import apple_notes
 import chat
 from config import (VOICE_MEMOS_DIR, AUDIO_EXTENSIONS,
-                    APP_PASSWORD, GOOGLE_CLIENT_ID, IS_MACOS)
+                    APP_PASSWORD, GOOGLE_CLIENT_ID, IS_MACOS,
+                    AUDIO_KEEP_MAX_MB)
 from prompts import PROMPT_REGISTRY
 
 bp = Blueprint("main", __name__)
@@ -259,6 +260,8 @@ def process_memo(filename):
 
         db.save_memo(filename, fpath, file_date, transcript, summary, note_type, saved,
                      user_id=uid, segments=segments, display_name=auto_title)
+
+        _maybe_delete_audio(fpath)
 
         return jsonify({
             "filename":     filename,
@@ -511,6 +514,20 @@ def _scan_memos() -> list[dict]:
 
     memos.sort(key=lambda m: m["file_date"], reverse=True)
     return memos
+
+
+def _maybe_delete_audio(fpath: str) -> bool:
+    """Delete audio file if it exceeds AUDIO_KEEP_MAX_MB. Returns True if deleted.
+
+    Set AUDIO_KEEP_MAX_MB=0 in .env to keep all files regardless of size.
+    """
+    if AUDIO_KEEP_MAX_MB <= 0 or not os.path.isfile(fpath):
+        return False
+    size_mb = os.path.getsize(fpath) / (1024 * 1024)
+    if size_mb > AUDIO_KEEP_MAX_MB:
+        os.remove(fpath)
+        return True
+    return False
 
 
 def _error(exc: Exception, status: int = 500):

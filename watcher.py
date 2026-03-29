@@ -177,6 +177,14 @@ class _AudioHandler:
 
             db.save_memo(filename, fpath, file_date, transcript, summary, "standard", False,
                          segments=segments, display_name=display_name)
+
+            from config import AUDIO_KEEP_MAX_MB
+            if AUDIO_KEEP_MAX_MB > 0:
+                size_mb = os.path.getsize(fpath) / (1024 * 1024)
+                if size_mb > AUDIO_KEEP_MAX_MB:
+                    os.remove(fpath)
+                    logger.info(f"[Watcher] Deleted audio (>{AUDIO_KEEP_MAX_MB} MB): {filename}")
+
             logger.info(f"[Watcher] ✓ Done: {filename}")
 
         except Exception as exc:
