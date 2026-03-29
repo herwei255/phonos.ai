@@ -202,7 +202,7 @@ def process_memo(filename):
                 db.rename_memo(filename, auto_title, uid)
                 existing["display_name"] = auto_title
             if to_notes:
-                title                 = os.path.splitext(filename)[0]
+                title                 = existing["display_name"]
                 transcript_note_title = title
                 transcript_url = apple_notes.save_transcript_note(
                     transcript_note_title, existing["transcript"],
@@ -240,7 +240,7 @@ def process_memo(filename):
 
         saved = False
         if to_notes:
-            title                 = os.path.splitext(filename)[0]
+            title                 = auto_title
             transcript_note_title = title
             transcript_url = apple_notes.save_transcript_note(
                 transcript_note_title, transcript, source_filename=filename
