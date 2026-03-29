@@ -4,7 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Phonos.ai</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23151519'/%3E%3Cg stroke='%23ffffff' stroke-width='2' stroke-linecap='round'%3E%3Cline x1='6' y1='16' x2='6' y2='16'/%3E%3Cline x1='10' y1='12' x2='10' y2='20'/%3E%3Cline x1='14' y1='8' x2='14' y2='24'/%3E%3Cline x1='18' y1='11' x2='18' y2='21'/%3E%3Cline x1='22' y1='13' x2='22' y2='19'/%3E%3Cline x1='26' y1='16' x2='26' y2='16'/%3E%3C/g%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236366f1'/%3E%3Cg stroke='%23ffffff' stroke-width='2' stroke-linecap='round'%3E%3Cline x1='6' y1='16' x2='6' y2='16'/%3E%3Cline x1='10' y1='12' x2='10' y2='20'/%3E%3Cline x1='14' y1='8' x2='14' y2='24'/%3E%3Cline x1='18' y1='11' x2='18' y2='21'/%3E%3Cline x1='22' y1='13' x2='22' y2='19'/%3E%3Cline x1='26' y1='16' x2='26' y2='16'/%3E%3C/g%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -120,9 +120,10 @@
       display: none; position: absolute; top: calc(100% + 8px); left: 0;
       background: #18181b; color: #fff;
       font-size: 0.7rem; line-height: 1.55; font-weight: 400;
-      padding: 10px 14px; border-radius: var(--r-sm); width: 240px;
+      padding: 10px 14px; border-radius: var(--r-sm); width: 220px; max-width: 220px;
       box-shadow: 0 8px 24px rgba(0,0,0,.2); z-index: 100;
       pointer-events: none; white-space: normal;
+      word-break: break-word; overflow-wrap: break-word;
     }
     .watch-tooltip strong { color: #a5b4fc; font-weight: 600; }
     .watch-tooltip .tip-row { margin-top: 5px; color: #9898B2; font-size: 0.66rem; }
@@ -134,6 +135,23 @@
       cursor: pointer; color: var(--text-2); font-family: inherit; transition: all .15s;
     }
     .refresh-btn:hover { background: var(--surface-2); color: var(--text-1); }
+
+    /* Search */
+    .sidebar-search {
+      padding: 10px 12px; border-bottom: 1px solid var(--border-light);
+    }
+    .sidebar-search input {
+      width: 100%; padding: 7px 10px 7px 30px; font-size: 0.8rem;
+      font-family: inherit; border: 1px solid var(--border);
+      border-radius: var(--r-xs); background: var(--surface-2);
+      color: var(--text-1); outline: none; transition: border-color .15s;
+      box-sizing: border-box;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: 9px center;
+    }
+    .sidebar-search input:focus { border-color: var(--accent); background-color: var(--surface); }
+    .sidebar-search input::placeholder { color: var(--text-3); }
 
     /* Memo list */
     .memo-list { flex: 1; overflow-y: auto; }
@@ -242,6 +260,7 @@
       text-underline-offset: 2px; font-family: inherit;
     }
     .series-link-btn:hover { color: var(--accent-dark); }
+    .series-info-wrap:hover .series-info-tip { display: block !important; }
     .series-action-btn {
       padding: 5px 12px; border-radius: var(--r-sm); font-size: 0.76rem; font-weight: 600;
       border: 1px solid var(--accent-border); background: var(--surface); color: var(--accent);
@@ -602,7 +621,7 @@
 <body>
 
 <div class="top-bar">
-  <a class="brand" href="/" style="text-decoration:none;">
+  <a class="brand" href="/" style="text-decoration:none;" onclick="switchTab('memos'); return false;">
     <div class="brand-icon">
       <!-- Sound-wave icon -->
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -615,7 +634,7 @@
       </svg>
     </div>
     <div class="brand-text">
-      <div class="brand-name">phonos<span class="brand-tld">.ai</span></div>
+      <div class="brand-name">Phonos<span class="brand-tld">.ai</span></div>
       <div class="brand-tagline">Voice memo transcription &amp; summarization</div>
     </div>
   </a>
@@ -644,6 +663,9 @@
         </span>
         <button class="refresh-btn" onclick="loadMemos()">Refresh</button>
       </div>
+    </div>
+    <div class="sidebar-search">
+      <input type="text" id="memo-search" placeholder="Search memos…" oninput="renderMemoList()" autocomplete="off" spellcheck="false" />
     </div>
     <div class="memo-list" id="memo-list"></div>
     <div class="sidebar-upload">
@@ -684,8 +706,20 @@
       </div>
 
       <!-- "Link to series" trigger (shown when memo is NOT in a series) -->
-      <div id="series-add-row" style="margin-bottom:14px;display:none;">
+      <div id="series-add-row" style="margin-bottom:14px;display:none;display:flex;align-items:center;gap:6px;">
         <button class="series-link-btn" onclick="openSeriesLinker()">📅 Link to recurring meeting series</button>
+        <span style="position:relative;display:inline-flex;" class="series-info-wrap">
+          <span style="width:16px;height:16px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);
+                       display:inline-flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;
+                       color:var(--text-3);cursor:default;flex-shrink:0;line-height:1;">?</span>
+          <span style="display:none;position:absolute;top:calc(100% + 7px);left:50%;transform:translateX(-50%);
+                       background:#18181b;color:#fff;font-size:0.7rem;line-height:1.55;padding:10px 13px;
+                       border-radius:8px;width:220px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:200;
+                       white-space:normal;pointer-events:none;" class="series-info-tip">
+            <strong style="color:#a5b4fc;">Recurring meeting series</strong><br>
+            Group memos from the same recurring meeting (e.g. weekly LP call) so you can compare them over time. Once linked, use <em>Compare meetings</em> to get an AI-generated "What Changed?" brief across all sessions.
+          </span>
+        </span>
       </div>
 
       <!-- Inline series linker form -->
@@ -792,6 +826,10 @@
 
     <!-- ── Chat panel (shares the main area) ── -->
     <div class="chat-panel" id="chat-panel">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px 0;flex-shrink:0;">
+        <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-3);">Chat with Notes</span>
+        <button onclick="clearChat()" style="font-size:0.72rem;font-weight:500;color:var(--text-3);background:none;border:none;cursor:pointer;font-family:inherit;padding:4px 8px;border-radius:6px;transition:all .15s;" onmouseover="this.style.color='var(--text-1)';this.style.background='var(--surface-2)'" onmouseout="this.style.color='var(--text-3)';this.style.background='none'">Clear chat</button>
+      </div>
       <div class="chat-messages" id="chat-messages">
         <div class="chat-empty" id="chat-empty">
           <div class="icon">💬</div>
@@ -806,7 +844,7 @@
             onkeydown="handleChatKey(event)"></textarea>
           <button class="chat-send" id="chat-send" onclick="sendChat()">Send</button>
         </div>
-        <div class="chat-hint">Press Enter to send · Shift+Enter for new line</div>
+        <div class="chat-hint">Press Enter to send · Shift+Enter for new line · Powered by DeepSeek V3</div>
       </div>
     </div>
 
@@ -825,6 +863,7 @@
   loadMemos();
   loadSeries();
   loadWatcherStatus();
+  loadChatHistory();
   // Seed prompt viewer with the default mode
   document.getElementById('prompt-display').value = PROMPTS[currentMode] || '';
 
@@ -899,12 +938,21 @@
   }
 
   function renderMemoList() {
-    const list = document.getElementById('memo-list');
+    const list  = document.getElementById('memo-list');
+    const query = (document.getElementById('memo-search')?.value || '').toLowerCase().trim();
+    const visible = query
+      ? memos.filter(m => (m.display_name || m.filename).toLowerCase().includes(query))
+      : memos;
+
     if (!memos.length) {
       list.innerHTML = '<div style="padding:24px;text-align:center;color:#a1a1aa;font-size:0.85rem;">No voice memos found.<br>Upload one or add files to the voice_memos folder.</div>';
       return;
     }
-    list.innerHTML = memos.map(m => {
+    if (!visible.length) {
+      list.innerHTML = '<div style="padding:24px;text-align:center;color:#a1a1aa;font-size:0.85rem;">No memos match your search.</div>';
+      return;
+    }
+    list.innerHTML = visible.map(m => {
       const d       = new Date(m.file_date);
       const dateStr = d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
       const timeStr = d.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' });
@@ -1432,10 +1480,38 @@
 
   // ── Chat ──
 
-  let chatHistory = [];   // [{role, content}]
-
   function handleChatKey(e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+  }
+
+  async function loadChatHistory() {
+    try {
+      const res  = await fetch('/api/chat/history');
+      const msgs = await res.json();
+      if (!msgs.length) return;
+
+      document.getElementById('chat-empty').style.display = 'none';
+      const msgBox = document.getElementById('chat-messages');
+      msgs.forEach(m => {
+        if (m.role === 'user') {
+          msgBox.insertAdjacentHTML('beforeend',
+            `<div class="chat-msg user">${esc(m.content)}</div>`);
+        } else {
+          msgBox.insertAdjacentHTML('beforeend',
+            `<div class="chat-msg assistant">${renderChat(m.content)}</div>`);
+        }
+      });
+      msgBox.scrollTop = msgBox.scrollHeight;
+    } catch (_) {}
+  }
+
+  async function clearChat() {
+    if (!confirm('Clear all chat history? This cannot be undone.')) return;
+    await fetch('/api/chat/clear', { method: 'DELETE' });
+    const msgBox = document.getElementById('chat-messages');
+    // Remove all bubbles but keep the empty-state div
+    [...msgBox.querySelectorAll('.chat-msg')].forEach(el => el.remove());
+    document.getElementById('chat-empty').style.display = '';
   }
 
   async function sendChat() {
@@ -1446,16 +1522,13 @@
     input.value = '';
     input.style.height = 'auto';
 
-    // Hide empty state
     document.getElementById('chat-empty').style.display = 'none';
 
     const msgBox = document.getElementById('chat-messages');
 
-    // User bubble
     msgBox.insertAdjacentHTML('beforeend',
       `<div class="chat-msg user">${esc(q)}</div>`);
 
-    // Thinking indicator
     const thinking = document.createElement('div');
     thinking.className = 'chat-msg thinking';
     thinking.textContent = 'Thinking…';
@@ -1468,24 +1541,14 @@
       const res  = await fetch('/api/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ question: q, history: chatHistory })
+        body:    JSON.stringify({ question: q })
       });
       const data = await res.json();
       if (!res.ok || data.error) throw new Error(data.error || 'Something went wrong.');
 
       thinking.remove();
-      const answer = data.answer;
-
-      // Assistant bubble
       msgBox.insertAdjacentHTML('beforeend',
-        `<div class="chat-msg assistant">${renderChat(answer)}</div>`);
-
-      // Save to history for multi-turn
-      chatHistory.push({ role: 'user',      content: q });
-      chatHistory.push({ role: 'assistant', content: answer });
-
-      // Keep history to last 10 turns (20 messages) to avoid huge payloads
-      if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
+        `<div class="chat-msg assistant">${renderChat(data.answer)}</div>`);
 
     } catch (err) {
       thinking.remove();

@@ -178,17 +178,19 @@ def _build_context(memos: list[dict], question: str) -> str:
 MAX_HISTORY = 20   # keep last 20 messages (10 turns) to bound payload size
 
 
-def answer(question: str, history: list[dict] | None = None) -> str:
+def answer(question: str, history: list[dict] | None = None,
+           user_id: int = 1) -> str:
     """Answer question using all processed meeting notes as context.
 
     Args:
         question: The user's question.
         history:  Optional list of prior {role, content} dicts for multi-turn chat.
+        user_id:  The current user's DB id (scopes memos to their own notes).
 
     Returns:
         The assistant's answer as a string.
     """
-    memos   = db.list_memos()
+    memos   = db.list_memos(user_id)
     context = _build_context(memos, question)
 
     system_with_context = (

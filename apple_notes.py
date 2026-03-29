@@ -281,34 +281,94 @@ end tell
             pass
 
 
+# ── Upsert helper ─────────────────────────────────────────────────────────────
+
+def _upsert_note_and_get_url(folder_name: str, title: str, html_body: str) -> str | None:
+    """Create or update an Apple Notes note, always returning its applenotes:// URL.
+
+    If a note with the same title already exists in the folder its body is
+    replaced in-place (no duplicate created). If it doesn't exist yet a new
+    note is created. Either way the URL of the note is returned.
+
+    This is done in a single AppleScript call so there's no race condition.
+    """
+    try:
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".html", delete=False, encoding="utf-8"
+        )
+        tmp.write(html_body)
+        tmp.close()
+        tmp_path = tmp.name
+    except Exception as e:
+        print(f"[Apple Notes] Failed to write temp file: {e}")
+        return None
+
+    try:
+        safe_title  = _esc_as(title)
+        safe_path   = _esc_as(tmp_path)
+        folder_script = _find_or_create_folder_script(folder_name)
+
+        script = f'''tell application "Notes"
+    activate{folder_script}
+    set htmlContent to (read POSIX file "{safe_path}" as «class utf8»)
+    set targetNote to missing value
+    repeat with n in notes of targetFolder
+        if name of n is "{safe_title}" then
+            set targetNote to n
+            exit repeat
+        end if
+    end repeat
+    if targetNote is missing value then
+        set targetNote to make new note at targetFolder with properties {{name:"{safe_title}", body:htmlContent}}
+    else
+        set body of targetNote to htmlContent
+    end if
+    return url of targetNote
+end tell
+'''
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            print(f"[Apple Notes] Upsert error: {result.stderr.strip()}")
+            return None
+        url = result.stdout.strip()
+        return url if url else None
+
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except Exception:
+            pass
+
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 def save_note(title: str, content_plain: str,
               transcript_url: str | None = None,
               source_filename: str | None = None) -> str | None:
-    """Save a meeting summary to APPLE_NOTES_FOLDER ("Voice Notes").
+    """Create or update a meeting summary in APPLE_NOTES_FOLDER ("Voice Notes").
 
-    If transcript_url is provided, a clickable link to the transcript note
-    is appended at the bottom of the note.
-
-    Returns the applenotes:// URL of the created note on success, None on failure.
+    If a note with this title already exists its body is replaced in-place —
+    no duplicate is created. Returns the applenotes:// URL on success.
     """
     html_body = notes_to_html(content_plain, transcript_url=transcript_url,
                               source_filename=source_filename)
-    return _create_note_and_get_url(APPLE_NOTES_FOLDER, title, html_body)
+    return _upsert_note_and_get_url(APPLE_NOTES_FOLDER, title, html_body)
 
 
 def save_transcript_note(title: str, transcript: str,
                          source_filename: str | None = None) -> str | None:
-    """Save a raw transcript to APPLE_TRANSCRIPTS_FOLDER ("Voice Transcripts").
+    """Create or update a transcript note in APPLE_TRANSCRIPTS_FOLDER.
 
-    Returns the applenotes:// URL of the created note so the summary note
-    can link to it, or None on failure.
+    If a note with this title already exists its body is replaced in-place.
+    Returns the applenotes:// URL so the summary note can link to it.
     """
     if not transcript:
         return None
     html_body = transcript_to_html(transcript, source_filename=source_filename)
-    return _create_note_and_get_url(APPLE_TRANSCRIPTS_FOLDER, title, html_body)
+    return _upsert_note_and_get_url(APPLE_TRANSCRIPTS_FOLDER, title, html_body)
 
 
 def update_transcript_note_with_summary_link(transcript_title: str, transcript: str,

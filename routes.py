@@ -4,43 +4,85 @@ To add a new endpoint: define a function here and decorate it with @bp.route().
 """
 import os
 from datetime import datetime
-from flask import Blueprint, request, jsonify, render_template, session, redirect, url_for, send_file
+from flask import (Blueprint, request, jsonify, render_template,
+                   session, redirect, url_for, send_file)
 
 import db
 import transcriber
 import summarizer
 import apple_notes
 import chat
-from config import VOICE_MEMOS_DIR, AUDIO_EXTENSIONS, APP_PASSWORD, IS_MACOS
+from config import (VOICE_MEMOS_DIR, AUDIO_EXTENSIONS,
+                    APP_PASSWORD, GOOGLE_CLIENT_ID, IS_MACOS)
 from prompts import PROMPT_REGISTRY
 
 bp = Blueprint("main", __name__)
+
+# Endpoints that don't require authentication
+_AUTH_EXEMPT = {
+    "main.login", "main.logout",
+    "main.auth_google", "main.auth_callback",
+    "main.home", "static",
+}
+
+
+# ── Auth helpers ──────────────────────────────────────────────────────────────
+
+def _uid() -> int:
+    """Return the current user's DB id (always set after require_login passes)."""
+    return session["user_id"]
+
+
+def _user_dir() -> str:
+    """Return the voice memos folder for the current user.
+
+    - Password / single-user mode (no GOOGLE_CLIENT_ID): flat VOICE_MEMOS_DIR,
+      same as before the multi-user rewrite — existing files stay untouched.
+    - Google OAuth / multi-user mode: VOICE_MEMOS_DIR/<user_id>/
+    """
+    if not GOOGLE_CLIENT_ID:
+        os.makedirs(VOICE_MEMOS_DIR, exist_ok=True)
+        return VOICE_MEMOS_DIR
+    d = os.path.join(VOICE_MEMOS_DIR, str(_uid()))
+    os.makedirs(d, exist_ok=True)
+    return d
 
 
 # ── Auth middleware ────────────────────────────────────────────────────────────
 
 @bp.before_request
 def require_login():
-    """Redirect to /login if APP_PASSWORD is set and user is not authenticated."""
-    if not APP_PASSWORD:
-        return  # Auth disabled — local dev mode
-    exempt = {"main.login", "main.logout"}
-    if request.endpoint in exempt:
+    if request.endpoint in _AUTH_EXEMPT:
         return
-    if not session.get("authenticated"):
+    if not session.get("user_id"):
         return redirect(url_for("main.login"))
 
 
+# ── Login / logout ────────────────────────────────────────────────────────────
+
 @bp.route("/login", methods=["GET", "POST"])
 def login():
-    if not APP_PASSWORD:
+    # Already logged in
+    if session.get("user_id"):
         return redirect(url_for("main.index"))
+
+    if GOOGLE_CLIENT_ID:
+        # Google OAuth mode — just show the button
+        return render_template("login.html", use_google=True, error=None)
+
+    # Password mode
+    if not APP_PASSWORD:
+        # Auth disabled entirely
+        session["user_id"] = 1
+        return redirect(url_for("main.index"))
+
     if request.method == "POST":
         if request.form.get("password") == APP_PASSWORD:
-            session["authenticated"] = True
+            session["user_id"] = 1
             return redirect(url_for("main.index"))
-        return render_template("login.html", error="Incorrect password — try again.")
-    return render_template("login.html", error=None)
+        return render_template("login.html", use_google=False,
+                               error="Incorrect password — try again.")
+    return render_template("login.html", use_google=False, error=None)
 
 
 @bp.route("/logout")
@@ -49,29 +91,66 @@ def logout():
     return redirect(url_for("main.login"))
 
 
-# ── Page ──────────────────────────────────────────────────────────────────────
+# ── Google OAuth ──────────────────────────────────────────────────────────────
+
+@bp.route("/auth/google")
+def auth_google():
+    from oauth_client import oauth
+    redirect_uri = url_for("main.auth_callback", _external=True)
+    return oauth.google.authorize_redirect(redirect_uri)
+
+
+@bp.route("/auth/google/callback")
+def auth_callback():
+    from oauth_client import oauth
+    token    = oauth.google.authorize_access_token()
+    userinfo = token.get("userinfo") or {}
+    user = db.get_or_create_user(
+        google_id=userinfo.get("sub", ""),
+        email=userinfo.get("email", ""),
+        name=userinfo.get("name"),
+        picture=userinfo.get("picture"),
+    )
+    session["user_id"]    = user["id"]
+    session["user_name"]  = user["name"] or user["email"]
+    session["user_email"] = user["email"]
+    session["user_pic"]   = user.get("picture") or ""
+    return redirect(url_for("main.index"))
+
+
+# ── Pages ─────────────────────────────────────────────────────────────────────
+
+@bp.route("/home")
+def home():
+    return render_template("home.html")
+
 
 @bp.route("/")
 def index():
     import json
-    # Strip the transcript block from display — users don't need to see "{transcript}"
     display_prompts = {}
     for key, tpl in PROMPT_REGISTRY.items():
-        # Cut off at the transcript divider line so the viewer shows the format/rules only
         cutoff = tpl.find("---\nTRANSCRIPT:")
         display_prompts[key] = tpl[:cutoff].strip() if cutoff != -1 else tpl.strip()
-    return render_template("index.html", is_macos=IS_MACOS,
-                           prompts_json=json.dumps(display_prompts))
+
+    # Pass user info to template for the top-bar profile display
+    user = db.get_user(_uid()) or {}
+    return render_template(
+        "index.html",
+        is_macos=IS_MACOS,
+        prompts_json=json.dumps(display_prompts),
+        user_name=session.get("user_name") or user.get("name") or "You",
+        user_email=session.get("user_email") or user.get("email") or "",
+        user_pic=session.get("user_pic") or user.get("picture") or "",
+    )
 
 
 # ── Memo list ─────────────────────────────────────────────────────────────────
 
 @bp.route("/api/memos")
 def list_memos():
-    """Return all audio files in VOICE_MEMOS_DIR with their DB status."""
     try:
-        memos = _scan_memos()
-        return jsonify(memos)
+        return jsonify(_scan_memos())
     except Exception as e:
         return _error(e)
 
@@ -80,9 +159,8 @@ def list_memos():
 
 @bp.route("/api/memo/<filename>")
 def get_memo(filename):
-    """Return the DB record for a processed memo."""
     try:
-        row = db.get_memo(filename)
+        row = db.get_memo(filename, _uid())
         if not row:
             return jsonify({"error": "Not processed yet"}), 404
         return jsonify(row)
@@ -92,9 +170,8 @@ def get_memo(filename):
 
 @bp.route("/api/audio/<path:filename>")
 def serve_audio(filename):
-    """Stream the original audio file for in-app playback."""
     try:
-        fpath = os.path.join(VOICE_MEMOS_DIR, filename)
+        fpath = os.path.join(_user_dir(), filename)
         if not os.path.isfile(fpath):
             return jsonify({"error": "File not found"}), 404
         return send_file(fpath, conditional=True)
@@ -106,31 +183,27 @@ def serve_audio(filename):
 
 @bp.route("/api/process/<filename>", methods=["POST"])
 def process_memo(filename):
-    """Transcribe and summarise a memo. Skips transcription if already in DB
-    with the same note_type (unless force=true is passed).
-    """
     try:
+        uid                  = _uid()
         body                 = request.json or {}
         note_type            = body.get("note_type", "standard")
         to_notes             = body.get("add_to_notes", False)
         force                = body.get("force", False)
         custom_instructions  = body.get("custom_instructions", "").strip()
 
-        fpath = os.path.join(VOICE_MEMOS_DIR, filename)
+        fpath = os.path.join(_user_dir(), filename)
         if not os.path.isfile(fpath):
             return jsonify({"error": "File not found in voice_memos folder"}), 404
 
-        existing = db.get_memo(filename)
+        existing = db.get_memo(filename, uid)
 
-        # Return fully cached result only when: same note_type, no custom instructions, no force flag
         if (existing and existing.get("summary") and existing["note_type"] == note_type
                 and not force and not custom_instructions):
-            # Backfill display_name if missing (memos processed before title extraction was added)
             if not existing.get("display_name"):
                 auto_title = summarizer.extract_title(existing["summary"], note_type)
-                db.rename_memo(filename, auto_title)
+                db.rename_memo(filename, auto_title, uid)
                 existing["display_name"] = auto_title
-            if to_notes and not existing["apple_saved"]:
+            if to_notes:
                 title                 = os.path.splitext(filename)[0]
                 transcript_note_title = title
                 transcript_url = apple_notes.save_transcript_note(
@@ -147,27 +220,23 @@ def process_memo(filename):
                         source_filename=filename
                     )
                 if summary_url:
-                    db.mark_apple_saved(filename)
+                    db.mark_apple_saved(filename, uid)
                     existing["apple_saved"] = 1
             return jsonify(existing)
 
-        # Reuse existing transcript if available — transcription is slow and expensive.
-        # Only re-transcribe when there is genuinely no transcript yet.
         segments = []
         if existing and existing.get("transcript"):
             transcript = existing["transcript"]
             file_date  = existing["file_date"]
             segments   = existing.get("segments") or []
         else:
-            file_date       = datetime.fromtimestamp(os.stat(fpath).st_mtime).isoformat()
-            result          = transcriber.transcribe(fpath)
-            transcript      = result["text"]
-            segments        = result["segments"]
+            file_date  = datetime.fromtimestamp(os.stat(fpath).st_mtime).isoformat()
+            result     = transcriber.transcribe(fpath)
+            transcript = result["text"]
+            segments   = result["segments"]
 
         summary = summarizer.generate(transcript, note_type, custom_instructions)
 
-        # Auto-generate a display title from the notes if one isn't already set.
-        # We only set it on first processing (don't overwrite a user-renamed title).
         existing_display = existing.get("display_name") if existing else None
         auto_title = existing_display or summarizer.extract_title(summary, note_type)
 
@@ -175,20 +244,13 @@ def process_memo(filename):
         if to_notes:
             title                 = os.path.splitext(filename)[0]
             transcript_note_title = title
-
-            # Step 1: create transcript note → get its URL
             transcript_url = apple_notes.save_transcript_note(
-                transcript_note_title, transcript,
-                source_filename=filename
+                transcript_note_title, transcript, source_filename=filename
             )
-            # Step 2: create summary note with link → get its URL
             summary_url = apple_notes.save_note(
-                title, summary, transcript_url=transcript_url,
-                source_filename=filename
+                title, summary, transcript_url=transcript_url, source_filename=filename
             )
             saved = summary_url is not None
-
-            # Step 3: update transcript note to add back-link to summary
             if transcript_url and summary_url:
                 apple_notes.update_transcript_note_with_summary_link(
                     transcript_note_title, transcript, summary_url, title,
@@ -196,7 +258,7 @@ def process_memo(filename):
                 )
 
         db.save_memo(filename, fpath, file_date, transcript, summary, note_type, saved,
-                     segments=segments, display_name=auto_title)
+                     user_id=uid, segments=segments, display_name=auto_title)
 
         return jsonify({
             "filename":     filename,
@@ -215,19 +277,19 @@ def process_memo(filename):
         return _error(e)
 
 
-# ── Rename ───────────────────────────────────────────────────────────────────
+# ── Rename ────────────────────────────────────────────────────────────────────
 
 @bp.route("/api/memo/<filename>/rename", methods=["POST"])
 def rename_memo(filename):
-    """Set a display name for a memo (stored in DB, file on disk is untouched)."""
     try:
+        uid          = _uid()
         body         = request.json or {}
         display_name = body.get("display_name", "").strip()
         if not display_name:
             return jsonify({"error": "display_name is required"}), 400
-        if not db.get_memo(filename):
+        if not db.get_memo(filename, uid):
             return jsonify({"error": "Memo not found"}), 404
-        db.rename_memo(filename, display_name)
+        db.rename_memo(filename, display_name, uid)
         return jsonify({"ok": True, "filename": filename, "display_name": display_name})
     except Exception as e:
         return _error(e)
@@ -237,10 +299,10 @@ def rename_memo(filename):
 
 @bp.route("/api/memo/<filename>", methods=["DELETE"])
 def delete_memo(filename):
-    """Delete a memo from the DB and remove its file from voice_memos/."""
     try:
-        fpath = os.path.join(VOICE_MEMOS_DIR, filename)
-        db.delete_memo(filename)
+        uid   = _uid()
+        fpath = os.path.join(_user_dir(), filename)
+        db.delete_memo(filename, uid)
         if os.path.isfile(fpath):
             os.remove(fpath)
         return jsonify({"ok": True, "filename": filename})
@@ -248,12 +310,12 @@ def delete_memo(filename):
         return _error(e)
 
 
-# ── Series ───────────────────────────────────────────────────────────────────
+# ── Series ────────────────────────────────────────────────────────────────────
 
 @bp.route("/api/series", methods=["GET"])
 def list_series():
     try:
-        return jsonify(db.list_series())
+        return jsonify(db.list_series(_uid()))
     except Exception as e:
         return _error(e)
 
@@ -264,7 +326,7 @@ def create_series():
         name = (request.json or {}).get("name", "").strip()
         if not name:
             return jsonify({"error": "name is required"}), 400
-        series_id = db.create_series(name)
+        series_id = db.create_series(name, _uid())
         return jsonify({"ok": True, "id": series_id, "name": name})
     except Exception as e:
         return _error(e)
@@ -273,7 +335,7 @@ def create_series():
 @bp.route("/api/series/<int:series_id>", methods=["GET"])
 def get_series(series_id):
     try:
-        s = db.get_series_with_memos(series_id)
+        s = db.get_series_with_memos(series_id, _uid())
         if not s:
             return jsonify({"error": "Series not found"}), 404
         return jsonify(s)
@@ -283,13 +345,12 @@ def get_series(series_id):
 
 @bp.route("/api/memo/<filename>/series", methods=["POST"])
 def set_memo_series(filename):
-    """Assign or unlink a memo from a series. Pass series_id=null to unlink."""
     try:
         body      = request.json or {}
-        series_id = body.get("series_id")   # None → unlink
+        series_id = body.get("series_id")
         if series_id is not None:
             series_id = int(series_id)
-        db.set_memo_series(filename, series_id)
+        db.set_memo_series(filename, series_id, _uid())
         return jsonify({"ok": True, "filename": filename, "series_id": series_id})
     except Exception as e:
         return _error(e)
@@ -297,9 +358,8 @@ def set_memo_series(filename):
 
 @bp.route("/api/series/<int:series_id>/diff", methods=["POST"])
 def generate_diff(series_id):
-    """Generate a 'what changed?' comparison brief for all memos in a series."""
     try:
-        s = db.get_series_with_memos(series_id)
+        s = db.get_series_with_memos(series_id, _uid())
         if not s:
             return jsonify({"error": "Series not found"}), 404
         processed = [m for m in s["memos"] if m.get("summary")]
@@ -316,22 +376,18 @@ def generate_diff(series_id):
 
 @bp.route("/api/upload", methods=["POST"])
 def upload_memo():
-    """Accept a file upload and drop it into VOICE_MEMOS_DIR.
-    For iCloud-format filenames (e.g. '20260329 230125-6587917D.qta'),
-    we immediately try to resolve the display name from VoiceMemos.sqlite
-    and store it in the DB so the sidebar shows the real memo title.
-    """
     try:
+        uid = _uid()
         if "audio" not in request.files:
             return jsonify({"error": "No audio file provided"}), 400
         f = request.files["audio"]
         if not f.filename:
             return jsonify({"error": "No filename"}), 400
-        os.makedirs(VOICE_MEMOS_DIR, exist_ok=True)
-        dest = os.path.join(VOICE_MEMOS_DIR, f.filename)
+
+        dest_dir = _user_dir()
+        dest     = os.path.join(dest_dir, f.filename)
         f.save(dest)
 
-        # Try to resolve a friendly display name right away (macOS only).
         display_name = None
         if IS_MACOS:
             try:
@@ -340,39 +396,64 @@ def upload_memo():
             except Exception:
                 pass
 
-        # Persist display_name stub in DB (without a transcript yet).
-        # We use a minimal upsert so the name is visible immediately.
         if display_name:
             try:
                 conn_inner = db._connect()
                 conn_inner.execute("""
-                    INSERT INTO memos (filename, filepath, display_name)
-                    VALUES (?, ?, ?)
-                    ON CONFLICT(filename) DO UPDATE SET
+                    INSERT INTO memos (user_id, filename, filepath, display_name)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(user_id, filename) DO UPDATE SET
                         display_name = COALESCE(excluded.display_name, memos.display_name)
-                """, (f.filename, dest, display_name))
+                """, (uid, f.filename, dest, display_name))
                 conn_inner.commit()
                 conn_inner.close()
             except Exception:
-                pass  # Non-fatal — display_name will be set again when processed
+                pass
 
         return jsonify({"ok": True, "filename": f.filename, "display_name": display_name})
     except Exception as e:
         return _error(e)
 
 
-# ── Chat ─────────────────────────────────────────────────────────────────────
+# ── Chat ──────────────────────────────────────────────────────────────────────
+
+@bp.route("/api/chat/history")
+def get_chat_history():
+    try:
+        return jsonify(db.get_chat_history(_uid()))
+    except Exception as e:
+        return _error(e)
+
+
+@bp.route("/api/chat/clear", methods=["DELETE"])
+def clear_chat_history():
+    try:
+        db.clear_chat_history(_uid())
+        return jsonify({"ok": True})
+    except Exception as e:
+        return _error(e)
+
 
 @bp.route("/api/chat", methods=["POST"])
 def chat_with_notes():
-    """Answer a question grounded in all stored meeting notes."""
     try:
+        uid      = _uid()
         body     = request.json or {}
         question = body.get("question", "").strip()
-        history  = body.get("history", [])
         if not question:
             return jsonify({"error": "No question provided"}), 400
-        answer = chat.answer(question, history)
+
+        history = [
+            {"role": m["role"], "content": m["content"]}
+            for m in db.get_chat_history(uid)
+        ]
+
+        db.append_chat_message("user", question, uid)
+
+        answer = chat.answer(question, history, user_id=uid)
+
+        db.append_chat_message("assistant", answer, uid)
+
         return jsonify({"answer": answer})
     except Exception as e:
         return _error(e)
@@ -380,7 +461,6 @@ def chat_with_notes():
 
 @bp.route("/api/watcher/status")
 def watcher_status():
-    """Return the current auto-watch state for the UI indicator."""
     if not IS_MACOS:
         return jsonify({"active": False, "folder": None,
                         "last_filename": None, "last_at": None, "total": 0})
@@ -391,32 +471,29 @@ def watcher_status():
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _scan_memos() -> list[dict]:
-    """Scan VOICE_MEMOS_DIR and merge with DB status.
+    """Scan the current user's voice memos folder and merge with DB status."""
+    uid      = _uid()
+    base_dir = _user_dir()
 
-    If a memo is already processed but has no display_name (e.g. processed
-    before title extraction was added), we backfill one from its summary
-    on the fly and persist it so the sidebar always shows a real title.
-    """
-    if not os.path.isdir(VOICE_MEMOS_DIR):
+    if not os.path.isdir(base_dir):
         return []
 
     memos = []
-    for fname in os.listdir(VOICE_MEMOS_DIR):
+    for fname in os.listdir(base_dir):
         if os.path.splitext(fname)[1].lower() not in AUDIO_EXTENSIONS:
             continue
-        fpath = os.path.join(VOICE_MEMOS_DIR, fname)
+        fpath = os.path.join(base_dir, fname)
         stat  = os.stat(fpath)
-        row   = db.get_memo(fname)
+        row   = db.get_memo(fname, uid)
 
         display_name = row["display_name"] if row and row.get("display_name") else None
 
-        # Backfill: processed memo with a summary but no display_name yet
         if not display_name and row and row.get("summary"):
             try:
                 display_name = summarizer.extract_title(
                     row["summary"], row.get("note_type") or "standard"
                 )
-                db.rename_memo(fname, display_name)
+                db.rename_memo(fname, display_name, uid)
             except Exception:
                 display_name = None
 

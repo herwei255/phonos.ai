@@ -49,8 +49,13 @@ _DEFAULT_WATCH = os.path.expanduser(
 WATCH_FOLDER = os.getenv("WATCH_FOLDER", _DEFAULT_WATCH)
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
-# Set APP_PASSWORD in env to enable password protection.
-# Leave empty (or unset) to run without auth — useful for local dev.
+# Google OAuth — set both vars to enable multi-user Google Sign-In.
+# Get credentials from: https://console.cloud.google.com/apis/credentials
+GOOGLE_CLIENT_ID     = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+
+# Password fallback — used when GOOGLE_CLIENT_ID is not set (local/single-user mode).
+# Default password is "phonos". Set APP_PASSWORD="" to disable auth entirely.
 APP_PASSWORD = os.getenv("APP_PASSWORD", "")
 # SECRET_KEY signs Flask session cookies. Always set this in production.
 # A random key is generated per process if not set (clears sessions on restart).

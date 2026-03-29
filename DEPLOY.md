@@ -14,7 +14,7 @@
 If you don't have a GitHub repo yet:
 
 ```bash
-cd ~/Code/meeting-notes-tool
+cd ~/Code/phonos
 git init
 git add .
 git commit -m "Initial commit"
@@ -23,7 +23,7 @@ git commit -m "Initial commit"
 Then go to https://github.com/new, create a new **private** repo, and follow the instructions to push:
 
 ```bash
-git remote add origin https://github.com/YOUR_USERNAME/meeting-notes-tool.git
+git remote add origin https://github.com/YOUR_USERNAME/phonos.git
 git push -u origin main
 ```
 
@@ -33,7 +33,7 @@ git push -u origin main
 
 1. Go to **https://railway.app** and sign in with GitHub
 2. Click **New Project → Deploy from GitHub repo**
-3. Select your `meeting-notes-tool` repo
+3. Select your `phonos` repo
 4. Railway auto-detects the `Procfile` and starts building
 
 ---
@@ -69,7 +69,7 @@ In Railway → your service → **Variables** tab, add:
 Railway deploys automatically when you push to GitHub. After the build finishes:
 
 1. Click **Settings → Networking → Generate Domain**
-2. You'll get a URL like `https://meeting-notes-tool-xyz.up.railway.app`
+2. You'll get a URL like `https://phonos-xyz.up.railway.app`
 3. Open it — you'll be prompted for your `APP_PASSWORD`
 
 ---
@@ -79,7 +79,7 @@ Railway deploys automatically when you push to GitHub. After the build finishes:
 Any `git push` to `main` triggers an automatic redeploy.
 
 ```bash
-cd ~/Code/meeting-notes-tool
+cd ~/Code/phonos
 git add .
 git commit -m "your change"
 git push

@@ -10,7 +10,7 @@
 # SETUP AS CRON (runs every 5 minutes):
 #   crontab -e
 #   Then paste this line (adjust the path):
-#   */5 * * * * /Users/hw/Code/meeting-notes-tool/sync_voice_memos.sh
+#   */5 * * * * /Users/hw/Code/phonos/sync_voice_memos.sh
 #
 # ──────────────────────────────────────────────────────────────────────────────
 

@@ -22,7 +22,7 @@ Open Terminal and run these commands one by one:
 
 ```bash
 # 1. Go into the project folder
-cd ~/Code/meeting-notes-tool
+cd ~/Code/phonos
 
 # 2. Copy the example config file
 cp .env.example .env
@@ -176,7 +176,7 @@ The app runs on port 5001. If something else is using that port, open `.env` and
 ## File structure (for the curious)
 
 ```
-meeting-notes-tool/
+phonos/
 ├── voice_memos/           ← your audio files live here
 ├── memos.db               ← all transcripts, notes, and glossary stored here (SQLite)
 ├── .env                   ← your API keys (never share this file)
