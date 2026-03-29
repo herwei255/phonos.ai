@@ -151,7 +151,8 @@ class _AudioHandler:
             import summarizer  as sm
             import voice_memo_metadata as vmm
 
-            existing = db.get_memo(filename)
+            LOCAL_USER_ID = 1  # Watcher only runs in single-user macOS mode
+            existing = db.get_memo(filename, LOCAL_USER_ID)
             if existing and existing.get("summary"):
                 logger.info(f"[Watcher] Already processed: {filename}")
                 return
@@ -168,15 +169,15 @@ class _AudioHandler:
             segments       = result["segments"]
 
             logger.info(f"[Watcher] Generating notes for {filename}…")
-            summary = sm.generate(transcript, "standard")
+            summary = sm.generate(transcript, "general")
 
             # Use AI-extracted title as display name if VMM lookup didn't find one
             if not display_name:
-                display_name = sm.extract_title(summary, "standard")
+                display_name = sm.extract_title(summary, "general")
                 logger.info(f"[Watcher] AI title: '{display_name}'")
 
-            db.save_memo(filename, fpath, file_date, transcript, summary, "standard", False,
-                         segments=segments, display_name=display_name)
+            db.save_memo(filename, fpath, file_date, transcript, summary, "general", False,
+                         user_id=LOCAL_USER_ID, segments=segments, display_name=display_name)
 
             from config import AUDIO_KEEP_MAX_MB
             if AUDIO_KEEP_MAX_MB > 0:

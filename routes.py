@@ -187,7 +187,7 @@ def process_memo(filename):
     try:
         uid                  = _uid()
         body                 = request.json or {}
-        note_type            = body.get("note_type", "standard")
+        note_type            = body.get("note_type", "general")
         to_notes             = body.get("add_to_notes", False)
         force                = body.get("force", False)
         custom_instructions  = body.get("custom_instructions", "").strip()
@@ -273,7 +273,8 @@ def process_memo(filename):
             "summary":      summary,
             "note_type":    note_type,
             "apple_saved":  int(saved),
-            "processed_at": datetime.now().isoformat()
+            "processed_at": datetime.now().isoformat(),
+            "file_exists":  os.path.isfile(fpath),
         })
 
     except Exception as e:
@@ -474,27 +475,62 @@ def watcher_status():
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _scan_memos() -> list[dict]:
-    """Scan the current user's voice memos folder and merge with DB status."""
+    """Return all memos for the current user.
+
+    Merges two sources so processed memos always appear even if audio was deleted:
+      1. Audio files on disk (may not be processed yet)
+      2. DB records (may have had their audio deleted post-transcription)
+    Each entry carries `file_exists: bool` so the UI can hide the player when False.
+    """
     uid      = _uid()
     base_dir = _user_dir()
+    seen     = set()
+    memos    = []
 
-    if not os.path.isdir(base_dir):
-        return []
+    # ── Pass 1: files on disk ──────────────────────────────────────────────────
+    if os.path.isdir(base_dir):
+        for fname in os.listdir(base_dir):
+            if os.path.splitext(fname)[1].lower() not in AUDIO_EXTENSIONS:
+                continue
+            fpath = os.path.join(base_dir, fname)
+            stat  = os.stat(fpath)
+            row   = db.get_memo(fname, uid)
+            seen.add(fname)
 
-    memos = []
-    for fname in os.listdir(base_dir):
-        if os.path.splitext(fname)[1].lower() not in AUDIO_EXTENSIONS:
-            continue
-        fpath = os.path.join(base_dir, fname)
-        stat  = os.stat(fpath)
-        row   = db.get_memo(fname, uid)
+            display_name = row["display_name"] if row and row.get("display_name") else None
+            if not display_name and row and row.get("summary"):
+                try:
+                    display_name = summarizer.extract_title(
+                        row["summary"], row.get("note_type") or "general"
+                    )
+                    db.rename_memo(fname, display_name, uid)
+                except Exception:
+                    display_name = None
 
-        display_name = row["display_name"] if row and row.get("display_name") else None
+            memos.append({
+                "filename":     fname,
+                "display_name": display_name,
+                "filepath":     fpath,
+                "file_date":    datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                "file_size_mb": round(stat.st_size / 1024 / 1024, 1),
+                "file_exists":  True,
+                "processed":    bool(row and row.get("transcript")),
+                "note_type":    row["note_type"] if row else None,
+                "apple_saved":  bool(row and row.get("apple_saved")),
+                "series_id":    row["series_id"] if row and row.get("series_id") else None,
+            })
 
-        if not display_name and row and row.get("summary"):
+    # ── Pass 2: DB records whose audio was deleted post-transcription ──────────
+    for row in db.list_memos(uid):
+        fname = row["filename"]
+        if fname in seen or not row.get("transcript"):
+            continue  # already listed from disk, or never processed
+
+        display_name = row.get("display_name")
+        if not display_name and row.get("summary"):
             try:
                 display_name = summarizer.extract_title(
-                    row["summary"], row.get("note_type") or "standard"
+                    row["summary"], row.get("note_type") or "general"
                 )
                 db.rename_memo(fname, display_name, uid)
             except Exception:
@@ -503,13 +539,14 @@ def _scan_memos() -> list[dict]:
         memos.append({
             "filename":     fname,
             "display_name": display_name,
-            "filepath":     fpath,
-            "file_date":    datetime.fromtimestamp(stat.st_mtime).isoformat(),
-            "file_size_mb": round(stat.st_size / 1024 / 1024, 1),
-            "processed":    bool(row and row.get("transcript")),
-            "note_type":    row["note_type"] if row else None,
-            "apple_saved":  bool(row and row.get("apple_saved")),
-            "series_id":    row["series_id"] if row and row.get("series_id") else None,
+            "filepath":     row.get("filepath", ""),
+            "file_date":    row.get("file_date") or row.get("processed_at") or "",
+            "file_size_mb": 0,
+            "file_exists":  False,
+            "processed":    True,
+            "note_type":    row.get("note_type"),
+            "apple_saved":  bool(row.get("apple_saved")),
+            "series_id":    row.get("series_id"),
         })
 
     memos.sort(key=lambda m: m["file_date"], reverse=True)

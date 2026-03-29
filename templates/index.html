@@ -65,6 +65,34 @@
     .brand-name .brand-tld { color: var(--accent); }
     .brand-tagline { font-size: 0.7rem; color: var(--text-3); font-weight: 400; }
 
+    /* User avatar */
+    .user-chip {
+      display: flex; align-items: center; gap: 7px;
+      padding: 4px 10px 4px 5px;
+      border-radius: 20px; border: 1px solid var(--border);
+      background: var(--surface-2); cursor: default;
+      font-size: 0.72rem; color: var(--text-2); font-weight: 500;
+      transition: background .15s;
+    }
+    .user-chip:hover { background: var(--accent-bg); border-color: var(--accent-border); }
+    .user-avatar {
+      width: 24px; height: 24px; border-radius: 50%;
+      object-fit: cover; flex-shrink: 0;
+    }
+    .user-initials {
+      width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff; font-size: 0.65rem; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .user-name-text { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .app-version {
+      font-size: 0.62rem; color: var(--text-3); font-weight: 400;
+      padding: 2px 6px; border-radius: 10px;
+      background: var(--surface-2); border: 1px solid var(--border-light);
+      margin-left: 4px;
+    }
+
     /* Tab nav */
     .tab-nav {
       display: flex; gap: 2px;
@@ -117,17 +145,22 @@
     .watch-pill.inactive .dot { background: var(--text-3); animation: none; }
     .watch-pill-wrap { position: relative; display: inline-flex; }
     .watch-tooltip {
-      display: none; position: absolute; top: calc(100% + 8px); left: 0;
+      display: none; position: absolute; top: 100%; left: 0;
+      padding-top: 8px; /* bridge the gap so hover doesn't break */
+      background: transparent;
+      z-index: 100; width: 220px;
+    }
+    .watch-tooltip-inner {
       background: #18181b; color: #fff;
       font-size: 0.7rem; line-height: 1.55; font-weight: 400;
-      padding: 10px 14px; border-radius: var(--r-sm); width: 220px; max-width: 220px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.2); z-index: 100;
-      pointer-events: none; white-space: normal;
-      word-break: break-word; overflow-wrap: break-word;
+      padding: 10px 14px; border-radius: var(--r-sm);
+      box-shadow: 0 8px 24px rgba(0,0,0,.2);
+      white-space: normal; word-break: break-word; overflow-wrap: break-word;
     }
     .watch-tooltip strong { color: #a5b4fc; font-weight: 600; }
     .watch-tooltip .tip-row { margin-top: 5px; color: #9898B2; font-size: 0.66rem; }
-    .watch-pill-wrap:hover .watch-tooltip { display: block; }
+    .watch-pill-wrap:hover .watch-tooltip,
+    .watch-tooltip:hover { display: block; }
 
     .refresh-btn {
       padding: 4px 10px; font-size: 0.72rem; font-weight: 500; border-radius: var(--r-xs);
@@ -178,6 +211,7 @@
     .badge.done  { background: var(--green-bg); color: #065F46; border: 1px solid var(--green-border); }
     .badge.apple { background: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; }
     .badge.hf    { background: var(--accent-bg); color: #4338CA; border: 1px solid var(--accent-border); }
+    .badge.mtg   { background: #F0F9FF; color: #0369A1; border: 1px solid #BAE6FD; }
 
     /* Delete button in sidebar */
     .memo-delete {
@@ -240,7 +274,7 @@
     }
     .edit-name-btn {
       flex-shrink: 0; background: none; border: none; cursor: pointer;
-      font-size: 0.85rem; color: var(--border); padding: 3px 5px;
+      color: var(--text-3); padding: 4px 5px; line-height: 0;
       border-radius: var(--r-xs); transition: color .15s;
     }
     .edit-name-btn:hover { color: var(--accent); }
@@ -260,7 +294,8 @@
       text-underline-offset: 2px; font-family: inherit;
     }
     .series-link-btn:hover { color: var(--accent-dark); }
-    .series-info-wrap:hover .series-info-tip { display: block !important; }
+    .series-info-wrap:hover .series-info-tip,
+    .series-info-tip:hover { display: block !important; }
     .series-action-btn {
       padding: 5px 12px; border-radius: var(--r-sm); font-size: 0.76rem; font-weight: 600;
       border: 1px solid var(--accent-border); background: var(--surface); color: var(--accent);
@@ -454,10 +489,15 @@
       background: var(--accent-bg); border-left: 3px solid var(--accent); padding-left: 5px;
     }
     .ts-time {
-      display: inline-block; min-width: 40px;
-      font-size: 0.65rem; color: var(--accent); font-weight: 700;
-      margin-right: 8px; flex-shrink: 0; font-family: "SF Mono", monospace;
+      display: inline-flex; align-items: center;
+      min-width: 44px; padding: 1px 6px;
+      font-size: 0.62rem; color: var(--accent); font-weight: 600;
+      margin-right: 10px; flex-shrink: 0;
+      font-family: "SF Mono", ui-monospace, monospace;
+      background: var(--accent-bg); border: 1px solid var(--accent-border);
+      border-radius: 20px; line-height: 1.6; letter-spacing: 0.02em;
     }
+    .ts-segment.active .ts-time { background: var(--accent); color: #fff; border-color: var(--accent); }
 
     /* ── Prompt viewer ── */
     .prompt-viewer { margin-bottom: 14px; }
@@ -642,6 +682,17 @@
     <button class="tab-btn active" id="tab-memos" onclick="switchTab('memos')">📋 Memos</button>
     <button class="tab-btn"        id="tab-chat"  onclick="switchTab('chat')">💬 Chat with Notes</button>
   </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    <span class="user-chip" title="{{ user_email }}">
+      {% if user_pic %}
+        <img class="user-avatar" src="{{ user_pic }}" alt="" referrerpolicy="no-referrer"/>
+      {% else %}
+        <span class="user-initials">{{ (user_name or 'U')[:1].upper() }}</span>
+      {% endif %}
+      <span class="user-name-text">{{ user_name or 'Local' }}</span>
+    </span>
+    <span class="app-version">v1.0</span>
+  </div>
 </div>
 
 <div class="layout">
@@ -649,16 +700,18 @@
   <!-- ── Sidebar ── -->
   <div class="sidebar">
     <div class="sidebar-header">
-      <h2>Voice Memos</h2>
+      <h2>Voice Memos <span id="memo-count" style="font-size:0.7rem;font-weight:400;color:var(--text-3);margin-left:4px;"></span></h2>
       <div style="display:flex;align-items:center;gap:6px;">
         <span class="watch-pill-wrap">
           <span class="watch-pill inactive" id="watch-pill">
             <span class="dot"></span><span id="watch-label">watching</span>
           </span>
           <div class="watch-tooltip" id="watch-tooltip">
-            <strong>Auto-watch inactive</strong><br>
-            Phonos is not monitoring any folder.
-            <div class="tip-row">Set WATCH_FOLDER in .env to enable.</div>
+            <div class="watch-tooltip-inner">
+              <strong>Auto-watch inactive</strong><br>
+              Phonos is not monitoring any folder.
+              <div class="tip-row">Set WATCH_FOLDER in .env to enable.</div>
+            </div>
           </div>
         </span>
         <button class="refresh-btn" onclick="loadMemos()">Refresh</button>
@@ -694,7 +747,12 @@
         <div style="flex:1;min-width:0;">
           <div class="title-row">
             <h2 id="detail-title" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></h2>
-            <button class="edit-name-btn" title="Rename" onclick="startRename()">✏️</button>
+            <button class="edit-name-btn" title="Rename" onclick="startRename()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
           </div>
           <div class="meta" id="detail-meta"></div>
         </div>
@@ -715,12 +773,14 @@
           <span style="width:16px;height:16px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);
                        display:inline-flex;align-items:center;justify-content:center;font-size:0.65rem;font-weight:700;
                        color:var(--text-3);cursor:default;flex-shrink:0;line-height:1;">?</span>
-          <span style="display:none;position:absolute;top:calc(100% + 7px);left:50%;transform:translateX(-50%);
-                       background:#18181b;color:#fff;font-size:0.7rem;line-height:1.55;padding:10px 13px;
-                       border-radius:8px;width:220px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:200;
-                       white-space:normal;pointer-events:none;" class="series-info-tip">
-            <strong style="color:#a5b4fc;">Recurring meeting series</strong><br>
-            Group memos from the same recurring meeting (e.g. weekly LP call) so you can compare them over time. Once linked, use <em>Compare meetings</em> to get an AI-generated "What Changed?" brief across all sessions.
+          <span style="display:none;position:absolute;top:100%;left:50%;transform:translateX(-50%);
+                       padding-top:7px;z-index:200;width:220px;" class="series-info-tip">
+            <span style="display:block;background:#18181b;color:#fff;font-size:0.7rem;line-height:1.55;
+                         padding:10px 13px;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);
+                         white-space:normal;">
+              <strong style="color:#a5b4fc;">Recurring meeting series</strong><br>
+              Group memos from the same recurring meeting (e.g. weekly LP call) so you can compare them over time. Once linked, use <em>Compare meetings</em> to get an AI-generated "What Changed?" brief across all sessions.
+            </span>
           </span>
         </span>
       </div>
@@ -753,7 +813,8 @@
       <div id="options-panel">
         <div class="options-row">
           <div class="mode-buttons">
-            <button class="mode-btn active" id="opt-standard"   onclick="setMode('standard')">📝 Standard</button>
+            <button class="mode-btn active" id="opt-general"    onclick="setMode('general')">✨ General</button>
+            <button class="mode-btn"        id="opt-meeting"    onclick="setMode('meeting')">📝 Meeting</button>
             <button class="mode-btn"        id="opt-hedge_fund" onclick="setMode('hedge_fund')">📊 Hedge Fund</button>
           </div>
           {% if is_macos %}
@@ -818,6 +879,9 @@
           <div class="audio-player-wrap" id="audio-player-wrap" style="display:none;">
             <audio id="audio-player" controls preload="metadata"></audio>
           </div>
+          <div id="audio-deleted-note" style="display:none;font-size:0.75rem;color:var(--text-3);margin-bottom:10px;">
+            🗂 Audio file was removed after transcription to save storage.
+          </div>
           <div class="section-body transcript" id="transcript-body"></div>
           <div class="actions" style="margin-top:10px;">
             <button class="action-btn" onclick="copyText('transcript')">Copy Transcript</button>
@@ -830,7 +894,7 @@
     <!-- ── Chat panel (shares the main area) ── -->
     <div class="chat-panel" id="chat-panel">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px 0;flex-shrink:0;">
-        <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-3);">Chat with Notes</span>
+        <span style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-3);">Chat</span>
         <button onclick="clearChat()" style="font-size:0.72rem;font-weight:500;color:var(--text-3);background:none;border:none;cursor:pointer;font-family:inherit;padding:4px 8px;border-radius:6px;transition:all .15s;" onmouseover="this.style.color='var(--text-1)';this.style.background='var(--surface-2)'" onmouseout="this.style.color='var(--text-3)';this.style.background='none'">Clear chat</button>
       </div>
       <div class="chat-messages" id="chat-messages">
@@ -859,7 +923,7 @@
 
   let memos        = [];
   let selectedMemo = null;
-  let currentMode  = 'standard';
+  let currentMode  = 'general';
   let rawSummary   = '';
   let rawTranscript = '';
 
@@ -919,10 +983,12 @@
           ? `<div class="tip-row">Last picked up: <strong style="color:#6ee7b7">${data.last_filename}</strong><br>${data.last_at}</div>`
           : `<div class="tip-row">No files picked up yet this session.</div>`;
         tooltip.innerHTML =
+          `<div class="watch-tooltip-inner">` +
           `<strong>Auto-watch active</strong><br>` +
           `Automatically transcribes new Voice Memos from your iPhone as they sync via iCloud.` +
           `<div class="tip-row">📁 ${folder}</div>` +
-          lastLine;
+          lastLine +
+          `</div>`;
         // Poll every 15s so the UI picks up newly auto-processed files
         setInterval(async () => {
           const r = await fetch('/api/watcher/status');
@@ -932,10 +998,15 @@
       } else {
         pill.classList.add('inactive');
         label.textContent = 'not watching';
+        const isWeb = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
         tooltip.innerHTML =
+          `<div class="watch-tooltip-inner">` +
           `<strong>Auto-watch inactive</strong><br>` +
-          `Phonos is not monitoring your Voice Memos folder.` +
-          `<div class="tip-row">Make sure iCloud Voice Memos sync is on, then restart the app.</div>`;
+          (isWeb
+            ? `Auto-sync is only available when running Phonos locally on your Mac. On the web version, upload files manually using the button below.`
+            : `Phonos is not monitoring your Voice Memos folder. Make sure iCloud Voice Memos sync is on, then restart the app.`) +
+          `<div class="tip-row">${isWeb ? '🌐 You\'re on the hosted version.' : '💡 Set WATCH_FOLDER in .env to enable.'}</div>` +
+          `</div>`;
       }
     } catch (_) { /* non-fatal */ }
   }
@@ -946,6 +1017,13 @@
     const visible = query
       ? memos.filter(m => (m.display_name || m.filename).toLowerCase().includes(query))
       : memos;
+
+    // Update memo count label
+    const countEl = document.getElementById('memo-count');
+    if (countEl) {
+      if (memos.length) countEl.textContent = query ? `${visible.length} / ${memos.length}` : `${memos.length}`;
+      else countEl.textContent = '';
+    }
 
     if (!memos.length) {
       list.innerHTML = '<div style="padding:24px;text-align:center;color:#a1a1aa;font-size:0.85rem;">No voice memos found.<br>Upload one or add files to the voice_memos folder.</div>';
@@ -963,6 +1041,7 @@
       let badges = m.processed
         ? `<span class="badge done">Processed</span>
            ${m.note_type === 'hedge_fund' ? '<span class="badge hf">HF</span>' : ''}
+           ${(m.note_type === 'meeting' || m.note_type === 'standard') ? '<span class="badge mtg">MTG</span>' : ''}
            ${m.apple_saved ? '<span class="badge apple">Notes</span>' : ''}`
         : '<span class="badge new">New</span>';
       const label = m.display_name || m.filename;
@@ -1073,9 +1152,21 @@
   // ── Audio helpers ──────────────────────────────────────────────────────────
 
   function fmtTime(secs) {
-    const m = Math.floor(secs / 60);
+    const h = Math.floor(secs / 3600);
+    const m = Math.floor((secs % 3600) / 60);
     const s = Math.floor(secs % 60);
+    if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
     return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  function cleanTranscriptText(text) {
+    // Strip embedded Whisper-style timestamps: [00:00.000 --> 00:03.500] or [00:01:23]
+    return text
+      .replace(/\[\d{2}:\d{2}[.:]\d{2,3}\s*-->\s*\d{2}:\d{2}[.:]\d{2,3}\]/g, '')
+      .replace(/\[\d{1,2}:\d{2}:\d{2}\]/g, '')
+      .replace(/\[\d{1,2}:\d{2}\]/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   }
 
   function renderTranscript(transcript, segments, filename) {
@@ -1083,9 +1174,17 @@
     const wrap    = document.getElementById('audio-player-wrap');
     const player  = document.getElementById('audio-player');
 
-    // Always wire up the audio player
-    player.src = `/api/audio/${encodeURIComponent(filename)}`;
-    wrap.style.display = 'flex';
+    // Only show player if the audio file still exists on disk
+    const audioDeleted = document.getElementById('audio-deleted-note');
+    if (selectedMemo && selectedMemo.file_exists === false) {
+      wrap.style.display = 'none';
+      player.src = '';
+      if (audioDeleted) audioDeleted.style.display = 'block';
+    } else {
+      player.src = `/api/audio/${encodeURIComponent(filename)}`;
+      wrap.style.display = 'flex';
+      if (audioDeleted) audioDeleted.style.display = 'none';
+    }
 
     if (segments && segments.length > 0) {
       // Render clickable timestamp segments
@@ -1111,9 +1210,9 @@
         }
       };
     } else {
-      // No segments (old memo) — plain text fallback
+      // No segments (old memo) — plain text fallback, strip any embedded timestamps
       body.style.whiteSpace = 'pre-wrap';
-      body.textContent = transcript;
+      body.textContent = cleanTranscriptText(transcript);
       player.ontimeupdate = null;
     }
   }
@@ -1140,8 +1239,11 @@
   // ── Controls ──
 
   function setMode(mode) {
+    // 'standard' is a legacy alias for 'meeting' — normalise it
+    if (mode === 'standard') mode = 'meeting';
     currentMode = mode;
-    document.getElementById('opt-standard').classList.toggle('active', mode === 'standard');
+    document.getElementById('opt-general').classList.toggle('active',    mode === 'general');
+    document.getElementById('opt-meeting').classList.toggle('active',    mode === 'meeting');
     document.getElementById('opt-hedge_fund').classList.toggle('active', mode === 'hedge_fund');
     // Update prompt viewer content and open it so the user can see the prompt
     const display = document.getElementById('prompt-display');

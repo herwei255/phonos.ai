@@ -24,7 +24,8 @@ def _load(name: str) -> str:
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
 
-STANDARD_PROMPT         = _load("standard")
+GENERAL_PROMPT          = _load("general")
+MEETING_PROMPT          = _load("meeting")
 HEDGE_FUND_PROMPT       = _load("hedge_fund")
 DIFF_PROMPT             = _load("diff")
 GLOSSARY_EXTRACT_PROMPT = _load("glossary_extract")
@@ -35,6 +36,9 @@ GLOSSARY_EXTRACT_PROMPT = _load("glossary_extract")
 # Add a new entry here once you've created the matching prompts/<key>.txt file.
 
 PROMPT_REGISTRY: dict[str, str] = {
-    "standard":   STANDARD_PROMPT,
+    "general":    GENERAL_PROMPT,
+    "meeting":    MEETING_PROMPT,
     "hedge_fund": HEDGE_FUND_PROMPT,
+    # Backward-compat alias: existing DB rows with note_type='standard' still resolve
+    "standard":   MEETING_PROMPT,
 }

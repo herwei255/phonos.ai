@@ -12,13 +12,15 @@ Record on your iPhone. Walk into the office. Your meeting notes are already wait
 [![DeepSeek](https://img.shields.io/badge/DeepSeek-V3-8b5cf6?style=flat-square)](https://openrouter.ai)
 [![License](https://img.shields.io/badge/License-MIT-52525b?style=flat-square)](LICENSE)
 
+**🌐 Live demo:** [phonos-production.up.railway.app](https://phonos-production.up.railway.app/)
+
 </div>
 
 ---
 
 ## The problem
 
-Professionals who spend their days in meetings — fund managers, investors, consultants, lawyers — record voice memos constantly. The information lives locked in audio files. Turning recordings into structured, actionable notes takes 30–60 minutes per meeting by hand, and the quality depends on whoever is doing the transcription.
+Most professionals in knowledge-heavy roles — finance, consulting, legal, sales — record voice memos constantly. But audio files are hard to search, reference, or share. Turning a recording into structured, actionable notes takes 30–60 minutes per meeting by hand, and key details get lost in the process.
 
 ## What Phonos.ai does
 
@@ -38,7 +40,7 @@ Phonos.ai is a personal voice memo intelligence tool. Record on your iPhone, it 
 
 ## Core use cases
 
-**Hedge fund / allocator due diligence** — Drop a voice memo from an LP meeting and get a fully structured allocator note: investment philosophy, team, AUM, track record, portfolio construction, terms — extracted in the exact format your IC requires. The AI learns your firm's shorthand and terminology with every memo, getting sharper over time.
+**Investment / allocator due diligence** — Drop a voice memo from an LP meeting and get a fully structured allocator note: investment philosophy, team, AUM, track record, portfolio construction, terms — extracted in the exact format your IC requires. The AI learns your firm's shorthand and terminology with every memo, getting sharper over time.
 
 **Sales and client meetings** — Record a client call, get an instant summary with action items and next steps. Reps save 45 minutes per meeting and never forget a commitment again.
 
@@ -50,7 +52,9 @@ Phonos.ai is a personal voice memo intelligence tool. Record on your iPhone, it 
 
 ## Why it's different
 
-Most transcription tools stop at the transcript. Phonos.ai applies domain-specific intelligence on top — industry glossaries, allocator-style formatting, custom prompt types per meeting category — so the output is ready to use, not ready to edit. And because it runs locally, your LP conversations, fund names, and performance data never leave your machine.
+Most transcription tools stop at the transcript. Phonos.ai applies domain-specific intelligence on top — industry glossaries, structured formatting, custom prompt types per meeting category — so the output is ready to use, not ready to edit.
+
+**Privacy-first by design.** The app runs on your own machine (or your own private server). Your audio, transcripts, and notes are stored locally in a SQLite database that never leaves your computer. The only external calls are to Groq (transcription) and OpenRouter (note generation) — the same way any AI writing tool works. You control your data.
 
 ---
 
@@ -128,11 +132,11 @@ You can select multiple recordings at once and they'll all be processed in order
 
 ### Auto-generated titles
 
-Every memo automatically gets a short title extracted from the AI-generated notes — so you see "Edelweiss Q1 Review" in the sidebar instead of "20260329 230125-6587917D". You can also rename any memo manually by clicking the pencil icon.
+Every memo automatically gets a short title extracted from the AI-generated notes — so you see "Q1 Allocator Review" in the sidebar instead of "20260329 230125-6587917D". You can also rename any memo manually by clicking the pencil icon.
 
 ### Chat with your notes
 
-Switch to the **Chat with Notes** tab and ask anything across all your recordings — "What did the Edelweiss fund say about their drawdown?" or "What action items came out of last week's meetings?" Powered by DeepSeek V3. History persists across restarts.
+Switch to the **Chat with Notes** tab and ask anything across all your recordings — "What did the fund say about their drawdown?" or "What action items came out of last week's meetings?" Powered by DeepSeek V3. History persists across restarts.
 
 ### Recurring meeting series
 

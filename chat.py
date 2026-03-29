@@ -3,23 +3,23 @@ chat.py — Multi-turn Q&A across all processed meeting notes.
 
 Context strategy (designed to balance detail vs. token cost):
 ────────────────────────────────────────────────────────────
-  1. Summaries for ALL memos — always included.
-     Compact (~200 tokens each), give the model a complete map of everything.
+  1. Summaries for the TOP 30 most relevant memos (capped).
+     Relevance is scored by keyword overlap between the question and the
+     memo's filename + summary. Compact (~200 tokens each). If you have
+     more than 30 memos a note tells the model the library is larger.
 
   2. Transcript excerpts for the TOP 2 most relevant memos only.
-     Relevance is scored by keyword overlap between the question and each
-     memo's filename + summary. For each top memo we extract sliding windows
-     (~600 chars) around every keyword match in the raw transcript, merge
-     overlapping windows, and cap at 3 excerpts per memo.
+     For each top memo we extract sliding windows (~600 chars) around every
+     keyword match in the raw transcript, merge overlapping windows, and cap
+     at 3 excerpts per memo.
 
-     This means specific factual questions ("what is the fund manager's name?",
-     "what return did they generate in 2025?") find the answer in the raw
+     This means specific factual questions find the answer in the raw
      transcript without sending 50,000 tokens of audio transcription to the API.
 
 Token budget (rough):
-  • N memos × ~200 tokens (summary)    = O(N × 200)
-  • 2 memos × 3 excerpts × ~150 tokens = ~900 tokens
-  • Total stays well under 8,000 tokens for typical usage.
+  • Up to 30 memos × ~200 tokens (summary) = ~6,000 tokens
+  • 2 memos × 3 excerpts × ~150 tokens     = ~900 tokens
+  • Total stays well under 10,000 tokens for any size library.
 """
 import re
 from openai import OpenAI
@@ -130,14 +130,18 @@ def _excerpt(transcript: str, kws: list[str],
 # ── Context builder ───────────────────────────────────────────────────────────
 
 TOP_N_TRANSCRIPTS = 2   # include transcript excerpts for this many top memos
+MAX_SUMMARY_MEMOS = 30  # cap summaries at this many; excess memos are omitted
 
 
 def _build_context(memos: list[dict], question: str) -> str:
     """Build the context block sent to the model.
 
-    All memos contribute a summary.
+    The TOP MAX_SUMMARY_MEMOS most-relevant memos contribute a summary.
     The TOP_N_TRANSCRIPTS most question-relevant memos also contribute
     keyword-matched transcript excerpts.
+
+    When there are more than MAX_SUMMARY_MEMOS memos, a note is prepended
+    so the model knows the full library is larger.
     """
     if not memos:
         return "No processed meeting notes available yet."
@@ -146,10 +150,20 @@ def _build_context(memos: list[dict], question: str) -> str:
 
     # Rank by relevance score (desc). ISO date strings sort correctly as-is,
     # so equal-score memos are ordered oldest-first as a tiebreaker (harmless).
-    ranked = sorted(
+    all_ranked = sorted(
         [m for m in memos if m.get("summary")],
         key=lambda m: (-_score_memo(m, kws), m.get("file_date") or ""),
     )
+
+    total = len(all_ranked)
+    ranked = all_ranked[:MAX_SUMMARY_MEMOS]
+
+    header_note = ""
+    if total > MAX_SUMMARY_MEMOS:
+        header_note = (
+            f"*Note: You have {total} processed memos. "
+            f"Showing the {MAX_SUMMARY_MEMOS} most relevant to this question.*\n\n"
+        )
 
     sections: list[str] = []
     for idx, memo in enumerate(ranked):
@@ -170,7 +184,7 @@ def _build_context(memos: list[dict], question: str) -> str:
         else:
             sections.append(f"{header}\n\n**SUMMARY:**\n{summary}")
 
-    return "\n\n---\n\n".join(sections)
+    return header_note + "\n\n---\n\n".join(sections)
 
 
 # ── Public API ────────────────────────────────────────────────────────────────

@@ -1,0 +1,24 @@
+You are a general-purpose summarizer. Your job is to read the transcript below and produce a clear, concise summary of what was said.
+
+Format the output EXACTLY like this:
+
+DATE: {date}
+TITLE: [infer a short descriptive title from the content]
+
+SUMMARY
+[2-4 sentences capturing the main topic and key takeaways]
+
+KEY POINTS
+- [important point or idea]
+- [another point]
+[add as many bullet points as needed; skip any that are not substantive]
+
+ACTION ITEMS
+- [specific task or follow-up mentioned, with owner if stated]
+[if none identified, write "None identified"]
+
+---
+TRANSCRIPT:
+{transcript}
+
+Generate the summary now. Be concise and factual. Use only the format above, no extra commentary.
