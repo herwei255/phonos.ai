@@ -24,7 +24,7 @@ _AUTH_EXEMPT = {
     "main.index",   # serves landing page to unauthenticated visitors
     "main.login", "main.logout",
     "main.auth_google", "main.auth_callback",
-    "main.home", "static",
+    "static",
 }
 
 
@@ -122,15 +122,15 @@ def auth_callback():
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
 
-@bp.route("/home")
-def home():
-    return render_template("home.html")
-
 
 @bp.route("/")
 def index():
-    # Not logged in → show landing page
+    # Not logged in → landing page on web, straight to login on localhost
     if not session.get("user_id"):
+        host = request.host.split(":")[0]
+        is_local = host in ("localhost", "127.0.0.1")
+        if is_local:
+            return redirect(url_for("main.login"))
         use_google = bool(GOOGLE_CLIENT_ID)
         return render_template("landing.html", use_google=use_google)
 
