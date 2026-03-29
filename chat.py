@@ -23,6 +23,7 @@ Token budget (rough):
 """
 import re
 from openai import OpenAI
+from rapidfuzz import process as fuzz_process, fuzz
 from config import OPENROUTER_API_KEY, SUMMARIZER_MODEL
 import db
 
@@ -66,10 +67,39 @@ def _keywords(text: str) -> list[str]:
 
 # ── Relevance scoring ─────────────────────────────────────────────────────────
 
+_FUZZY_THRESHOLD = 82   # 0-100; 82 catches 1-2 char typos, rejects unrelated words
+_FUZZY_WORD_MIN  = 4    # only fuzzy-match words >= this length (avoids "is"≈"in" false hits)
+
+
 def _score_memo(memo: dict, kws: list[str]) -> int:
-    """Count keyword hits in filename + summary (fast proxy for relevance)."""
+    """Score a memo's relevance to a set of keywords.
+
+    Short keywords (< _FUZZY_WORD_MIN chars) use exact substring matching.
+    Longer keywords use fuzzy token matching via rapidfuzz — so "Blackrok"
+    still hits a memo that mentions "Blackrock".
+    """
     haystack = (memo.get("filename", "") + " " + memo.get("summary", "")).lower()
-    return sum(haystack.count(kw) for kw in kws)
+    haystack_words = re.findall(r"[a-z]{3,}", haystack)
+
+    score = 0
+    for kw in kws:
+        if len(kw) < _FUZZY_WORD_MIN:
+            # Short keyword: exact count in full haystack
+            score += haystack.count(kw)
+        else:
+            # Longer keyword: fuzzy match against every word in the haystack
+            result = fuzz_process.extractOne(
+                kw, haystack_words,
+                scorer=fuzz.ratio,
+                score_cutoff=_FUZZY_THRESHOLD,
+            )
+            if result:
+                # Weight by how often a similar word appears
+                score += sum(
+                    1 for w in haystack_words
+                    if fuzz.ratio(kw, w) >= _FUZZY_THRESHOLD
+                )
+    return score
 
 
 # ── Transcript excerpt extraction ─────────────────────────────────────────────
@@ -89,11 +119,17 @@ def _excerpt(transcript: str, kws: list[str],
     text_lower = transcript.lower()
     half = window // 2
 
-    # Collect all match positions, sorted
+    # Collect all match positions — exact for short keywords, fuzzy for longer ones
     positions: list[int] = []
     for kw in kws:
-        for m in re.finditer(r"\b" + re.escape(kw) + r"\b", text_lower):
-            positions.append(m.start())
+        if len(kw) < _FUZZY_WORD_MIN:
+            for m in re.finditer(r"\b" + re.escape(kw) + r"\b", text_lower):
+                positions.append(m.start())
+        else:
+            # Find all words in the transcript that fuzzy-match this keyword
+            for m in re.finditer(r"\b[a-z]{3,}\b", text_lower):
+                if fuzz.ratio(kw, m.group()) >= _FUZZY_THRESHOLD:
+                    positions.append(m.start())
     positions = sorted(set(positions))
 
     if not positions:
@@ -130,7 +166,7 @@ def _excerpt(transcript: str, kws: list[str],
 # ── Context builder ───────────────────────────────────────────────────────────
 
 TOP_N_TRANSCRIPTS = 2   # include transcript excerpts for this many top memos
-MAX_SUMMARY_MEMOS = 30  # cap summaries at this many; excess memos are omitted
+MAX_SUMMARY_MEMOS = 50  # cap summaries at this many; excess memos are omitted
 
 
 def _build_context(memos: list[dict], question: str) -> str:

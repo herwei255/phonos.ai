@@ -27,17 +27,27 @@ _observer   = None
 _state      = {
     "active":        False,
     "folder":        None,
+    "handler":       None,   # _AudioHandler instance, set by start()
     "last_filename": None,
     "last_at":       None,   # ISO timestamp
     "total":         0,      # files processed this session
 }
-_state_lock = threading.Lock()
+_state_lock   = threading.Lock()
+_processing   : set[str] = set()   # filenames the watcher is actively working on
+_proc_lock    = threading.Lock()
+
+
+def is_processing(filename: str) -> bool:
+    with _proc_lock:
+        return filename in _processing
 
 
 def status() -> dict:
     """Return a copy of the current watcher state (safe to serialise as JSON)."""
     with _state_lock:
-        return dict(_state)
+        s = dict(_state)
+    s.pop("handler", None)   # not JSON-serialisable
+    return s
 
 
 # ── File handler ──────────────────────────────────────────────────────────────
@@ -145,6 +155,8 @@ class _AudioHandler:
 
     def _process(self, filename: str, fpath: str):
         """Transcribe and summarise the new file directly (no HTTP round-trip)."""
+        with _proc_lock:
+            _processing.add(filename)
         try:
             import db
             import transcriber as tr
@@ -169,14 +181,14 @@ class _AudioHandler:
             segments       = result["segments"]
 
             logger.info(f"[Watcher] Generating notes for {filename}…")
-            summary = sm.generate(transcript, "general")
+            summary = sm.generate(transcript, "meeting")
 
             # Use AI-extracted title as display name if VMM lookup didn't find one
             if not display_name:
-                display_name = sm.extract_title(summary, "general")
+                display_name = sm.extract_title(summary, "meeting")
                 logger.info(f"[Watcher] AI title: '{display_name}'")
 
-            db.save_memo(filename, fpath, file_date, transcript, summary, "general", False,
+            db.save_memo(filename, fpath, file_date, transcript, summary, "meeting", False,
                          user_id=LOCAL_USER_ID, segments=segments, display_name=display_name)
 
             from config import AUDIO_KEEP_MAX_MB
@@ -190,6 +202,9 @@ class _AudioHandler:
 
         except Exception as exc:
             logger.error(f"[Watcher] Processing failed for {filename}: {exc}")
+        finally:
+            with _proc_lock:
+                _processing.discard(filename)
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -224,6 +239,45 @@ def _polling_loop(watch_folder: str, handler: "_AudioHandler") -> None:
                     ).start()
         except Exception as exc:
             logger.warning(f"[Watcher] Poll error: {exc}")
+
+
+def _startup_scan(watch_folder: str, handler: "_AudioHandler") -> None:
+    """Process any audio files in the watch folder that aren't in the DB yet.
+
+    Runs once at startup in a background thread so recordings made while the
+    app was offline are not missed.
+    """
+    logger.info("[Watcher] Running startup scan for missed recordings…")
+    try:
+        import db
+        LOCAL_USER_ID = 1
+        found = 0
+        for entry in os.scandir(watch_folder):
+            name = entry.name
+            # Trigger iCloud download for any placeholders first
+            if name.startswith(".") and name.endswith(".icloud"):
+                handler._trigger_icloud_download(entry.path)
+                continue
+            if not handler._is_audio(entry.path):
+                continue
+            # Skip if already in DB
+            existing = db.get_memo(name, LOCAL_USER_ID)
+            if existing:
+                handler._seen.add(entry.path)
+                continue
+            # New file — queue for processing
+            if entry.path not in handler._seen:
+                handler._seen.add(entry.path)
+                found += 1
+                threading.Thread(
+                    target=handler._handle, args=(entry.path,), daemon=True
+                ).start()
+        if found:
+            logger.info(f"[Watcher] Startup scan: queued {found} missed recording(s).")
+        else:
+            logger.info("[Watcher] Startup scan: nothing missed.")
+    except Exception as exc:
+        logger.warning(f"[Watcher] Startup scan error: {exc}")
 
 
 def start(watch_folder: str | None = None) -> bool:
@@ -267,6 +321,11 @@ def start(watch_folder: str | None = None) -> bool:
     poll_thread.start()
     logger.info(f"[Watcher] Polling every {POLL_INTERVAL}s: {watch_folder}")
 
+    # Catch any recordings that arrived while the app was offline
+    threading.Thread(
+        target=_startup_scan, args=(watch_folder, inner), daemon=True
+    ).start()
+
     # ── 2. watchdog observer (fast path for local recordings) ─────────────────
     try:
         from watchdog.observers import Observer
@@ -292,10 +351,52 @@ def start(watch_folder: str | None = None) -> bool:
         logger.warning(f"[Watcher] FSEvents observer failed ({exc}) — polling only.")
 
     with _state_lock:
-        _state["active"] = True
-        _state["folder"] = watch_folder
+        _state["active"]  = True
+        _state["folder"]  = watch_folder
+        _state["handler"] = inner
 
     return True
+
+
+def scan_now() -> int:
+    """Trigger an immediate scan of the watch folder (called on Refresh).
+
+    Returns the number of new files queued for processing.
+    """
+    with _state_lock:
+        watch_folder = _state.get("folder")
+        handler      = _state.get("handler")
+
+    if not watch_folder or not handler:
+        return 0
+
+    queued = 0
+    try:
+        import db
+        LOCAL_USER_ID = 1
+        for entry in os.scandir(watch_folder):
+            name = entry.name
+            if name.startswith(".") and name.endswith(".icloud"):
+                handler._trigger_icloud_download(entry.path)
+                continue
+            if not handler._is_audio(entry.path):
+                continue
+            existing = db.get_memo(name, LOCAL_USER_ID)
+            if existing:
+                handler._seen.add(entry.path)
+                continue
+            if entry.path not in handler._seen:
+                handler._seen.add(entry.path)
+                queued += 1
+                threading.Thread(
+                    target=handler._handle, args=(entry.path,), daemon=True
+                ).start()
+    except Exception as exc:
+        logger.warning(f"[Watcher] scan_now error: {exc}")
+
+    if queued:
+        logger.info(f"[Watcher] scan_now: queued {queued} new file(s).")
+    return queued
 
 
 def stop():

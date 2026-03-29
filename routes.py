@@ -23,7 +23,7 @@ bp = Blueprint("main", __name__)
 _AUTH_EXEMPT = {
     "main.index",   # serves landing page to unauthenticated visitors
     "main.login", "main.logout",
-    "main.auth_google", "main.auth_callback",
+    "main.auth_google", "main.auth_callback", "main.auth_local",
     "static",
 }
 
@@ -62,6 +62,11 @@ def require_login():
 
 # ── Login / logout ────────────────────────────────────────────────────────────
 
+def _is_local() -> bool:
+    host = request.host.split(":")[0]
+    return host in ("localhost", "127.0.0.1")
+
+
 @bp.route("/login", methods=["GET", "POST"])
 def login():
     # Already logged in
@@ -69,12 +74,15 @@ def login():
         return redirect(url_for("main.index"))
 
     if GOOGLE_CLIENT_ID:
-        # Google OAuth mode — landing page is the entry point, send them there
-        return redirect(url_for("main.index"))
+        # Show Google sign-in; on localhost also offer the "Use Local" bypass
+        return render_template("login.html",
+                               use_google=True,
+                               show_local=_is_local(),
+                               error=None)
 
     # Password mode
     if not APP_PASSWORD:
-        # Auth disabled entirely
+        # Auth disabled entirely — auto-login as local user
         session["user_id"] = 1
         return redirect(url_for("main.index"))
 
@@ -83,14 +91,31 @@ def login():
             session["user_id"] = 1
             return redirect(url_for("main.index"))
         return render_template("login.html", use_google=False,
+                               show_local=False,
                                error="Incorrect password — try again.")
-    return render_template("login.html", use_google=False, error=None)
+    return render_template("login.html", use_google=False, show_local=False, error=None)
 
 
 @bp.route("/logout")
 def logout():
     session.clear()
     return redirect(url_for("main.login"))
+
+
+# ── Local auth bypass (localhost only) ───────────────────────────────────────
+
+@bp.route("/auth/local")
+def auth_local():
+    """Skip OAuth and log in as the local user (user_id=1).
+    Only works on localhost — blocked on any other host.
+    """
+    if not _is_local():
+        return "Not available on the hosted version.", 403
+    session["user_id"]    = 1
+    session["user_name"]  = "Local"
+    session["user_email"] = ""
+    session["user_pic"]   = ""
+    return redirect(url_for("main.index"))
 
 
 # ── Google OAuth ──────────────────────────────────────────────────────────────
@@ -193,7 +218,7 @@ def process_memo(filename):
     try:
         uid                  = _uid()
         body                 = request.json or {}
-        note_type            = body.get("note_type", "general")
+        note_type            = body.get("note_type", "meeting")
         to_notes             = body.get("add_to_notes", False)
         force                = body.get("force", False)
         custom_instructions  = body.get("custom_instructions", "").strip()
@@ -478,6 +503,25 @@ def watcher_status():
     return jsonify(watcher.status())
 
 
+@bp.route("/api/watcher/processing/<filename>")
+def watcher_processing(filename):
+    """Return whether the watcher is currently processing this file."""
+    if not IS_MACOS:
+        return jsonify({"processing": False})
+    import watcher
+    return jsonify({"processing": watcher.is_processing(filename)})
+
+
+@bp.route("/api/watcher/scan", methods=["POST"])
+def watcher_scan():
+    """Trigger an immediate folder scan — called by the Refresh button."""
+    if not IS_MACOS:
+        return jsonify({"ok": True, "queued": 0})
+    import watcher
+    queued = watcher.scan_now()
+    return jsonify({"ok": True, "queued": queued})
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _scan_memos() -> list[dict]:
@@ -507,7 +551,7 @@ def _scan_memos() -> list[dict]:
             if not display_name and row and row.get("summary"):
                 try:
                     display_name = summarizer.extract_title(
-                        row["summary"], row.get("note_type") or "general"
+                        row["summary"], row.get("note_type") or "meeting"
                     )
                     db.rename_memo(fname, display_name, uid)
                 except Exception:
@@ -536,7 +580,7 @@ def _scan_memos() -> list[dict]:
         if not display_name and row.get("summary"):
             try:
                 display_name = summarizer.extract_title(
-                    row["summary"], row.get("note_type") or "general"
+                    row["summary"], row.get("note_type") or "meeting"
                 )
                 db.rename_memo(fname, display_name, uid)
             except Exception:

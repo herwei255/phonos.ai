@@ -714,7 +714,7 @@
             </div>
           </div>
         </span>
-        <button class="refresh-btn" onclick="loadMemos()">Refresh</button>
+        <button class="refresh-btn" onclick="refreshAndScan()">Refresh</button>
       </div>
     </div>
     <div class="sidebar-search">
@@ -813,9 +813,9 @@
       <div id="options-panel">
         <div class="options-row">
           <div class="mode-buttons">
-            <button class="mode-btn active" id="opt-general"    onclick="setMode('general')">✨ General</button>
-            <button class="mode-btn"        id="opt-meeting"    onclick="setMode('meeting')">📝 Meeting</button>
+            <button class="mode-btn active" id="opt-meeting"    onclick="setMode('meeting')">📝 Meeting</button>
             <button class="mode-btn"        id="opt-hedge_fund" onclick="setMode('hedge_fund')">📊 Hedge Fund</button>
+            <button class="mode-btn"        id="opt-general"    onclick="setMode('general')">✨ General</button>
           </div>
           {% if is_macos %}
           <div class="toggle-row">
@@ -923,7 +923,7 @@
 
   let memos        = [];
   let selectedMemo = null;
-  let currentMode  = 'general';
+  let currentMode  = 'meeting';
   let rawSummary   = '';
   let rawTranscript = '';
 
@@ -960,6 +960,12 @@
   }, 30000);
 
   // ── Memo list ──
+
+  async function refreshAndScan() {
+    // Trigger an immediate watcher scan, then reload the memo list
+    try { await fetch('/api/watcher/scan', { method: 'POST' }); } catch (_) {}
+    await loadMemos();
+  }
 
   async function loadMemos() {
     const res = await fetch('/api/memos');
@@ -1041,7 +1047,7 @@
       let badges = m.processed
         ? `<span class="badge done">Processed</span>
            ${m.note_type === 'hedge_fund' ? '<span class="badge hf">HF</span>' : ''}
-           ${(m.note_type === 'meeting' || m.note_type === 'standard') ? '<span class="badge mtg">MTG</span>' : ''}
+           ${(m.note_type === 'meeting' || m.note_type === 'standard') ? '<span class="badge mtg">Meeting</span>' : ''}
            ${m.apple_saved ? '<span class="badge apple">Notes</span>' : ''}`
         : '<span class="badge new">New</span>';
       const label = m.display_name || m.filename;
@@ -1083,15 +1089,48 @@
     } else {
       document.getElementById('results-panel').style.display = 'none';
       document.getElementById('process-btn').textContent = 'Generate Notes';
+      // Check if the watcher is already processing this file
+      checkWatcherProcessing(filename);
     }
+  }
+
+  let _watcherPollTimer = null;
+
+  async function checkWatcherProcessing(filename) {
+    clearTimeout(_watcherPollTimer);
+    try {
+      const res  = await fetch(`/api/watcher/processing/${encodeURIComponent(filename)}`);
+      const data = await res.json();
+      const btn  = document.getElementById('process-btn');
+      if (data.processing) {
+        btn.disabled = true;
+        btn.textContent = 'Processing…';
+        // Poll every 2s until done, then reload
+        _watcherPollTimer = setTimeout(async () => {
+          if (selectedMemo?.filename === filename) {
+            await checkWatcherProcessing(filename);
+          }
+        }, 2000);
+      } else if (btn.textContent === 'Processing…') {
+        // Just finished — reload to show results
+        btn.disabled = false;
+        await loadMemos();
+        const updated = memos.find(m => m.filename === filename);
+        if (updated) selectMemo(updated);
+      }
+    } catch (_) {}
   }
 
   // ── Rendering ──
 
   function renderNotes(text) {
     if (!text) return '';
+
+    // Strip markdown bold/italic markers the AI sometimes adds (**text** → text)
+    text = text.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*([^*]+)\*/g, '$1');
+
     const SECTION_RE = /^[A-Z][A-Z &\/\-]{2,}:?\s*$/;
-    const META_RE    = /^(DATE|MEETING TITLE|FUND):\s*(.*)/;
+    const META_RE    = /^(DATE|TITLE|MEETING TITLE|FUND|SUMMARY):\s*(.*)/i;
     let html = '', metaBuf = [];
 
     function flushMeta() {
@@ -1106,14 +1145,15 @@
       if (!t) { flushMeta(); continue; }
 
       const m = t.match(META_RE);
-      if (m) { metaBuf.push(`<strong>${m[1]}:</strong> ${esc(m[2])}`); continue; }
+      if (m) { metaBuf.push(`<strong>${m[1].toUpperCase()}:</strong> ${esc(m[2])}`); continue; }
 
       flushMeta();
 
       if (SECTION_RE.test(t)) {
         html += `<div class="note-heading">${esc(t.replace(/:$/, ''))}</div>`;
-      } else if (t.startsWith('- ') || t.startsWith('* ')) {
-        const content = t.slice(2);
+      } else if (t.startsWith('- ') || t.startsWith('* ') || t.startsWith('• ') || t.startsWith('•')) {
+        // Handle both "- text", "• text" and "•text"
+        const content = t.replace(/^[-*•]\s*/, '');
         const isNone  = /^none\b/i.test(content);
         html += `<div class="note-bullet"><span class="bull">•</span><span class="${isNone ? 'note-none' : ''}">${esc(content)}</span></div>`;
       } else if (t !== '---') {
