@@ -46,7 +46,7 @@ class _AudioHandler:
     """Minimal watchdog-compatible event handler that avoids the full import
     until watchdog is confirmed available."""
 
-    AUDIO_EXTS = {".m4a", ".mp3", ".wav", ".ogg", ".webm", ".mp4", ".caf", ".aac", ".flac"}
+    AUDIO_EXTS = {".m4a", ".mp3", ".wav", ".ogg", ".webm", ".mp4", ".caf", ".aac", ".flac", ".qta"}
 
     def __init__(self, dest_dir: str):
         self.dest_dir = dest_dir
@@ -55,10 +55,37 @@ class _AudioHandler:
     # watchdog calls dispatch() → on_created / on_moved
     def dispatch(self, event):
         path = getattr(event, "dest_path", None) or getattr(event, "src_path", "")
-        if not event.is_directory and self._is_audio(path):
+        if event.is_directory:
+            return
+
+        # iCloud syncs from iPhone arrive as invisible placeholders first:
+        #   .Recording.m4a.icloud  →  real file not yet downloaded
+        # Detect these and trigger the download so the real .m4a appears.
+        if os.path.basename(path).startswith(".") and path.endswith(".icloud"):
+            self._trigger_icloud_download(path)
+            return
+
+        if self._is_audio(path):
             if path not in self._seen:
                 self._seen.add(path)
                 threading.Thread(target=self._handle, args=(path,), daemon=True).start()
+
+    def _trigger_icloud_download(self, icloud_path: str):
+        """Call brctl download to force iCloud to pull down a placeholder file.
+
+        iCloud placeholder naming: .Recording.m4a.icloud
+        Real file path:             Recording.m4a   (same dir, no dot, no .icloud)
+        """
+        import subprocess
+        basename  = os.path.basename(icloud_path)           # .Recording.m4a.icloud
+        real_name = basename[1:][:-len(".icloud")]           # Recording.m4a
+        real_path = os.path.join(os.path.dirname(icloud_path), real_name)
+        logger.info(f"[Watcher] iCloud placeholder detected → triggering download: {real_name}")
+        try:
+            subprocess.run(["brctl", "download", real_path],
+                           capture_output=True, timeout=10)
+        except Exception as exc:
+            logger.warning(f"[Watcher] brctl download failed: {exc}")
 
     def _is_audio(self, path: str) -> bool:
         _, ext = os.path.splitext(path.lower())
@@ -122,11 +149,17 @@ class _AudioHandler:
             import db
             import transcriber as tr
             import summarizer  as sm
+            import voice_memo_metadata as vmm
 
             existing = db.get_memo(filename)
             if existing and existing.get("summary"):
                 logger.info(f"[Watcher] Already processed: {filename}")
                 return
+
+            # Resolve human-readable display name from VoiceMemos.sqlite
+            display_name = vmm.get_display_name(filename)
+            if display_name:
+                logger.info(f"[Watcher] Display name: '{display_name}'")
 
             logger.info(f"[Watcher] Transcribing {filename}…")
             file_date      = datetime.fromtimestamp(os.stat(fpath).st_mtime).isoformat()
@@ -137,8 +170,13 @@ class _AudioHandler:
             logger.info(f"[Watcher] Generating notes for {filename}…")
             summary = sm.generate(transcript, "standard")
 
+            # Use AI-extracted title as display name if VMM lookup didn't find one
+            if not display_name:
+                display_name = sm.extract_title(summary, "standard")
+                logger.info(f"[Watcher] AI title: '{display_name}'")
+
             db.save_memo(filename, fpath, file_date, transcript, summary, "standard", False,
-                         segments=segments)
+                         segments=segments, display_name=display_name)
             logger.info(f"[Watcher] ✓ Done: {filename}")
 
         except Exception as exc:
@@ -147,14 +185,51 @@ class _AudioHandler:
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
+POLL_INTERVAL = 20   # seconds between folder scans (backup for missed FSEvents)
+
+
+def _polling_loop(watch_folder: str, handler: "_AudioHandler") -> None:
+    """Scan the watch folder every POLL_INTERVAL seconds.
+
+    This is the primary detection mechanism for iPhone recordings synced via
+    iCloud. FSEvents (used by watchdog) often misses creation events in
+    iCloud-managed Group Containers folders, so we poll as a reliable fallback.
+
+    For each scan:
+      • Hidden .icloud placeholders  → call brctl download to pull the real file
+      • Real audio files not yet seen → queue for copy + process
+    """
+    while True:
+        time.sleep(POLL_INTERVAL)
+        try:
+            for entry in os.scandir(watch_folder):
+                name = entry.name
+                # iCloud placeholder: .Recording.m4a.icloud
+                if name.startswith(".") and name.endswith(".icloud"):
+                    handler._trigger_icloud_download(entry.path)
+                # Real audio file not yet queued
+                elif handler._is_audio(entry.path) and entry.path not in handler._seen:
+                    handler._seen.add(entry.path)
+                    threading.Thread(
+                        target=handler._handle, args=(entry.path,), daemon=True
+                    ).start()
+        except Exception as exc:
+            logger.warning(f"[Watcher] Poll error: {exc}")
+
+
 def start(watch_folder: str | None = None) -> bool:
     """Start the background folder watcher.
+
+    Runs two mechanisms in parallel:
+      1. watchdog FSEvents observer — catches macOS-local recordings immediately.
+      2. Polling thread every {POLL_INTERVAL}s — reliably catches iPhone recordings
+         synced via iCloud (FSEvents misses these in Group Containers folders).
 
     Args:
         watch_folder: Path to monitor. Falls back to config.WATCH_FOLDER.
 
     Returns:
-        True if the watcher started successfully, False otherwise.
+        True if at least the polling thread started, False on hard failure.
     """
     global _observer
 
@@ -170,46 +245,48 @@ def start(watch_folder: str | None = None) -> bool:
     watch_folder = os.path.expanduser(watch_folder)
 
     if not os.path.isdir(watch_folder):
-        logger.warning(f"[Watcher] Folder does not exist (yet): {watch_folder}")
-        # Don't error out — iCloud folders appear lazily. We'll just not watch.
+        logger.warning(f"[Watcher] Folder does not exist: {watch_folder}")
         return False
 
+    from config import VOICE_MEMOS_DIR
+    inner = _AudioHandler(VOICE_MEMOS_DIR)
+
+    # ── 1. Polling thread (primary for iCloud) ────────────────────────────────
+    poll_thread = threading.Thread(
+        target=_polling_loop, args=(watch_folder, inner), daemon=True
+    )
+    poll_thread.start()
+    logger.info(f"[Watcher] Polling every {POLL_INTERVAL}s: {watch_folder}")
+
+    # ── 2. watchdog observer (fast path for local recordings) ─────────────────
     try:
         from watchdog.observers import Observer
         from watchdog.events    import FileSystemEventHandler
 
-        # Wrap our minimal handler in watchdog's base class
         class _WDHandler(FileSystemEventHandler):
-            def __init__(self, inner):
+            def __init__(self, handler):
                 super().__init__()
-                self._inner = inner
+                self._h = handler
             def on_created(self, event):
-                self._inner.dispatch(event)
+                self._h.dispatch(event)
             def on_moved(self, event):
-                # iCloud sometimes moves the real file into place
-                self._inner.dispatch(event)
-
-        from config import VOICE_MEMOS_DIR
-        inner   = _AudioHandler(VOICE_MEMOS_DIR)
-        handler = _WDHandler(inner)
+                self._h.dispatch(event)
 
         _observer = Observer()
-        _observer.schedule(handler, watch_folder, recursive=False)
+        _observer.schedule(_WDHandler(inner), watch_folder, recursive=False)
         _observer.start()
-
-        with _state_lock:
-            _state["active"] = True
-            _state["folder"] = watch_folder
-
-        logger.info(f"[Watcher] Watching: {watch_folder}")
-        return True
+        logger.info(f"[Watcher] FSEvents observer active: {watch_folder}")
 
     except ImportError:
-        logger.warning("[Watcher] watchdog not installed — run: pip install watchdog")
-        return False
+        logger.warning("[Watcher] watchdog not installed — FSEvents disabled, polling only.")
     except Exception as exc:
-        logger.error(f"[Watcher] Failed to start: {exc}")
-        return False
+        logger.warning(f"[Watcher] FSEvents observer failed ({exc}) — polling only.")
+
+    with _state_lock:
+        _state["active"] = True
+        _state["folder"] = watch_folder
+
+    return True
 
 
 def stop():

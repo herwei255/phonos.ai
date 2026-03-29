@@ -1,0 +1,27 @@
+You are a financial terminology specialist. Read the transcript below from a hedge fund investor meeting.
+
+Your task: identify any fund-specific jargon, strategy names, proprietary terms, internal shorthand, or domain-specific abbreviations that are NOT already in the standard glossary below.
+
+EXISTING STANDARD GLOSSARY TERMS (do NOT re-add these):
+Teens, Twenties, Low teens, Mid teens, High teens, Flattish, Flat, Up single digits, Down double digits,
+300, 500, 1000, 2000, MSCI, Hang Seng, HSI, Nikkei, KOSPI,
+Alpha, Beta, Net return, Gross return, Sharpe, Sortino, Max DD, Max drawdown, Vol, Volatility, IR, Information Ratio, Hit rate, Win/loss ratio,
+Long only, L/S, Long/short, Net exposure, Gross exposure, Leverage, Book, Concentration, Turnover, PM, IC,
+2 and 20, 2/20, Mgmt fee, Perf fee, Incentive fee, Hurdle, HWM, High water mark, Clawback,
+AUM, NAV, Hard close, Soft close, Capacity, Redemption, Lock-up, Gate, Liquidity,
+bps, bp, YTD, MTD, QTD, LTM, TTM, SIF, MF, HF, FoF, LP, GP, DD, ODD, RFP, Mandate, Allocation
+
+{existing_dynamic_terms}
+
+INSTRUCTIONS:
+- Extract only NEW terms not already listed above.
+- For each new term, provide a concise one-line definition based on how it was used in this specific transcript.
+- Focus on: fund names, strategy names, proprietary signals, sector shorthand, firm-specific abbreviations, unusual return metrics, or any phrase used as insider jargon.
+- If there are no new terms, respond with exactly: NO_NEW_TERMS
+
+OUTPUT FORMAT (one per line, nothing else):
+TERM: [term or abbreviation as spoken] = [concise definition]
+
+---
+TRANSCRIPT:
+{transcript}

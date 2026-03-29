@@ -125,6 +125,11 @@ def process_memo(filename):
         # Return fully cached result only when: same note_type, no custom instructions, no force flag
         if (existing and existing.get("summary") and existing["note_type"] == note_type
                 and not force and not custom_instructions):
+            # Backfill display_name if missing (memos processed before title extraction was added)
+            if not existing.get("display_name"):
+                auto_title = summarizer.extract_title(existing["summary"], note_type)
+                db.rename_memo(filename, auto_title)
+                existing["display_name"] = auto_title
             if to_notes and not existing["apple_saved"]:
                 title                 = os.path.splitext(filename)[0]
                 transcript_note_title = title
@@ -161,6 +166,11 @@ def process_memo(filename):
 
         summary = summarizer.generate(transcript, note_type, custom_instructions)
 
+        # Auto-generate a display title from the notes if one isn't already set.
+        # We only set it on first processing (don't overwrite a user-renamed title).
+        existing_display = existing.get("display_name") if existing else None
+        auto_title = existing_display or summarizer.extract_title(summary, note_type)
+
         saved = False
         if to_notes:
             title                 = os.path.splitext(filename)[0]
@@ -186,10 +196,11 @@ def process_memo(filename):
                 )
 
         db.save_memo(filename, fpath, file_date, transcript, summary, note_type, saved,
-                     segments=segments)
+                     segments=segments, display_name=auto_title)
 
         return jsonify({
             "filename":     filename,
+            "display_name": auto_title,
             "filepath":     fpath,
             "file_date":    file_date,
             "transcript":   transcript,
@@ -305,7 +316,11 @@ def generate_diff(series_id):
 
 @bp.route("/api/upload", methods=["POST"])
 def upload_memo():
-    """Accept a file upload and drop it into VOICE_MEMOS_DIR."""
+    """Accept a file upload and drop it into VOICE_MEMOS_DIR.
+    For iCloud-format filenames (e.g. '20260329 230125-6587917D.qta'),
+    we immediately try to resolve the display name from VoiceMemos.sqlite
+    and store it in the DB so the sidebar shows the real memo title.
+    """
     try:
         if "audio" not in request.files:
             return jsonify({"error": "No audio file provided"}), 400
@@ -313,8 +328,35 @@ def upload_memo():
         if not f.filename:
             return jsonify({"error": "No filename"}), 400
         os.makedirs(VOICE_MEMOS_DIR, exist_ok=True)
-        f.save(os.path.join(VOICE_MEMOS_DIR, f.filename))
-        return jsonify({"ok": True, "filename": f.filename})
+        dest = os.path.join(VOICE_MEMOS_DIR, f.filename)
+        f.save(dest)
+
+        # Try to resolve a friendly display name right away (macOS only).
+        display_name = None
+        if IS_MACOS:
+            try:
+                import voice_memo_metadata as vmm
+                display_name = vmm.get_display_name(f.filename)
+            except Exception:
+                pass
+
+        # Persist display_name stub in DB (without a transcript yet).
+        # We use a minimal upsert so the name is visible immediately.
+        if display_name:
+            try:
+                conn_inner = db._connect()
+                conn_inner.execute("""
+                    INSERT INTO memos (filename, filepath, display_name)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(filename) DO UPDATE SET
+                        display_name = COALESCE(excluded.display_name, memos.display_name)
+                """, (f.filename, dest, display_name))
+                conn_inner.commit()
+                conn_inner.close()
+            except Exception:
+                pass  # Non-fatal — display_name will be set again when processed
+
+        return jsonify({"ok": True, "filename": f.filename, "display_name": display_name})
     except Exception as e:
         return _error(e)
 
@@ -349,7 +391,12 @@ def watcher_status():
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _scan_memos() -> list[dict]:
-    """Scan VOICE_MEMOS_DIR and merge with DB status."""
+    """Scan VOICE_MEMOS_DIR and merge with DB status.
+
+    If a memo is already processed but has no display_name (e.g. processed
+    before title extraction was added), we backfill one from its summary
+    on the fly and persist it so the sidebar always shows a real title.
+    """
     if not os.path.isdir(VOICE_MEMOS_DIR):
         return []
 
@@ -360,9 +407,22 @@ def _scan_memos() -> list[dict]:
         fpath = os.path.join(VOICE_MEMOS_DIR, fname)
         stat  = os.stat(fpath)
         row   = db.get_memo(fname)
+
+        display_name = row["display_name"] if row and row.get("display_name") else None
+
+        # Backfill: processed memo with a summary but no display_name yet
+        if not display_name and row and row.get("summary"):
+            try:
+                display_name = summarizer.extract_title(
+                    row["summary"], row.get("note_type") or "standard"
+                )
+                db.rename_memo(fname, display_name)
+            except Exception:
+                display_name = None
+
         memos.append({
             "filename":     fname,
-            "display_name": row["display_name"] if row and row.get("display_name") else None,
+            "display_name": display_name,
             "filepath":     fpath,
             "file_date":    datetime.fromtimestamp(stat.st_mtime).isoformat(),
             "file_size_mb": round(stat.st_size / 1024 / 1024, 1),

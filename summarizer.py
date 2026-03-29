@@ -31,10 +31,17 @@ def generate(transcript: str, note_type: str = "standard", custom_instructions: 
         )
 
     prompt_template = PROMPT_REGISTRY[note_type]
-    prompt = prompt_template.format(
-        transcript=transcript,
-        date=datetime.now().strftime("%B %d, %Y")
-    )
+
+    # Build format kwargs — inject dynamic glossary for hedge_fund notes
+    fmt_kwargs: dict = {
+        "transcript": transcript,
+        "date":       datetime.now().strftime("%B %d, %Y"),
+    }
+    if note_type == "hedge_fund":
+        import glossary as gl
+        fmt_kwargs["dynamic_glossary"] = gl.build_dynamic_glossary_block(note_type)
+
+    prompt = prompt_template.format(**fmt_kwargs)
 
     if custom_instructions:
         prompt += f"\n\nADDITIONAL INSTRUCTIONS FROM USER:\n{custom_instructions}"
@@ -49,7 +56,14 @@ def generate(transcript: str, note_type: str = "standard", custom_instructions: 
         temperature=0.3,
         max_tokens=3000
     )
-    return response.choices[0].message.content
+    result = response.choices[0].message.content
+
+    # After generating, kick off async term extraction for hedge fund notes
+    if note_type == "hedge_fund":
+        import glossary as gl
+        gl.extract_and_save_async(transcript, note_type)
+
+    return result
 
 
 def generate_diff(series_name: str, meetings: list[dict]) -> str:

@@ -1,0 +1,31 @@
+You are an investment analyst reviewing a series of recurring meetings with the same fund manager.
+
+Compare the meeting notes below in chronological order and produce a structured "What Changed?" intelligence brief.
+
+SERIES: {series_name}
+TOTAL MEETINGS: {n_meetings}
+
+{meetings_block}
+
+---
+
+Output the following structured brief. Delete any section entirely if there is nothing to report.
+
+SERIES COMPARISON: {series_name}
+DATE RANGE: {date_range}
+
+WHAT HAS CHANGED
+- [Specific changes in strategy, AUM, team, performance, terms, or outlook since the last meeting]
+- [Be precise — quote figures if they appear in the notes]
+
+WHAT IS CONSISTENT
+- [Themes, positions, or claims that remain the same across meetings — signals conviction or stagnation]
+
+NEW DEVELOPMENTS
+- [Topics, risks, or opportunities that appear for the first time in the most recent meeting]
+
+COMMITMENTS & FOLLOW-THROUGH
+- [Anything promised or flagged in an earlier meeting — has it materialised? Is there an update?]
+
+OVERALL TRAJECTORY
+[2-3 sentences: Is the fund's story improving, deteriorating, or stable? What is the trend?]

@@ -24,7 +24,7 @@ VOICE_MEMOS_DIR = os.getenv("VOICE_MEMOS_DIR", os.path.join(BASE_DIR, "voice_mem
 DB_PATH         = os.getenv("DB_PATH", os.path.join(BASE_DIR, "memos.db"))
 
 # ── Audio ─────────────────────────────────────────────────────────────────────
-AUDIO_EXTENSIONS = {".m4a", ".mp3", ".wav", ".ogg", ".webm", ".mp4", ".caf", ".aac", ".flac"}
+AUDIO_EXTENSIONS = {".m4a", ".mp3", ".wav", ".ogg", ".webm", ".mp4", ".caf", ".aac", ".flac", ".qta"}
 GROQ_MAX_BYTES   = 20 * 1024 * 1024   # 20 MB — safely under Groq's 25 MB limit
 
 # ── Apple Notes ───────────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ APPLE_TRANSCRIPTS_FOLDER = "Voice Transcripts"   # raw audio transcripts
 
 # ── Flask ─────────────────────────────────────────────────────────────────────
 MAX_UPLOAD_BYTES = 500 * 1024 * 1024  # 500 MB
-PORT             = int(os.getenv("PORT", 5000))
+PORT             = int(os.getenv("PORT", 5001))
 
 # ── Platform ──────────────────────────────────────────────────────────────────
 import sys

@@ -49,10 +49,17 @@ def transcribe(file_path: str) -> dict:
     Segments carry timestamps for in-app audio seek. Falls back to
     {"text": ..., "segments": []} if verbose_json is unavailable.
     """
+    # Formats Groq accepts natively (no conversion needed)
+    GROQ_NATIVE = {".flac", ".mp3", ".mp4", ".mpeg", ".mpga", ".m4a",
+                   ".ogg", ".opus", ".wav", ".webm"}
+
     compressed_path = None
     send_path = file_path
+    ext = os.path.splitext(file_path)[1].lower()
 
-    if os.path.getsize(file_path) > GROQ_MAX_BYTES:
+    # Always convert if format isn't natively supported (e.g. .qta from iPhone)
+    # or if the file exceeds Groq's size limit.
+    if ext not in GROQ_NATIVE or os.path.getsize(file_path) > GROQ_MAX_BYTES:
         compressed_path = compress_audio(file_path)
         send_path = compressed_path
 

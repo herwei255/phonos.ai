@@ -31,6 +31,16 @@ def init_db() -> None:
     """)
 
     conn.execute("""
+        CREATE TABLE IF NOT EXISTS glossary (
+            term       TEXT NOT NULL,
+            definition TEXT NOT NULL,
+            note_type  TEXT NOT NULL DEFAULT 'hedge_fund',
+            created_at TEXT,
+            PRIMARY KEY (term, note_type)
+        )
+    """)
+
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS memos (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             filename     TEXT UNIQUE NOT NULL,
@@ -83,24 +93,26 @@ def get_memo(filename: str) -> dict | None:
 def save_memo(filename: str, filepath: str, file_date: str,
               transcript: str, summary: str,
               note_type: str, apple_saved: bool,
-              segments: list | None = None) -> None:
+              segments: list | None = None,
+              display_name: str | None = None) -> None:
     segments_json = json.dumps(segments) if segments else None
     conn = _connect()
     conn.execute("""
         INSERT INTO memos
             (filename, filepath, file_date, transcript, summary,
-             note_type, apple_saved, processed_at, segments)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+             note_type, apple_saved, processed_at, segments, display_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(filename) DO UPDATE SET
             transcript   = excluded.transcript,
             summary      = excluded.summary,
             note_type    = excluded.note_type,
             apple_saved  = excluded.apple_saved,
             processed_at = excluded.processed_at,
-            segments     = excluded.segments
+            segments     = excluded.segments,
+            display_name = COALESCE(excluded.display_name, memos.display_name)
     """, (filename, filepath, file_date, transcript, summary,
           note_type, int(apple_saved), datetime.now().isoformat(),
-          segments_json))
+          segments_json, display_name))
     conn.commit()
     conn.close()
 
@@ -132,6 +144,41 @@ def list_memos() -> list[dict]:
     rows = conn.execute("SELECT * FROM memos ORDER BY file_date DESC").fetchall()
     conn.close()
     return [dict(r) for r in rows]
+
+
+# ── Glossary ──────────────────────────────────────────────────────────────────
+
+def get_glossary(note_type: str = "hedge_fund") -> list[dict]:
+    """Return all dynamic glossary terms for the given note_type."""
+    conn = _connect()
+    rows = conn.execute(
+        "SELECT term, definition, created_at FROM glossary WHERE note_type = ? ORDER BY term",
+        (note_type,)
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def upsert_glossary_term(term: str, definition: str, note_type: str = "hedge_fund") -> None:
+    """Insert or update a single glossary term."""
+    conn = _connect()
+    conn.execute("""
+        INSERT INTO glossary (term, definition, note_type, created_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(term, note_type) DO UPDATE SET
+            definition = excluded.definition,
+            created_at = excluded.created_at
+    """, (term.strip(), definition.strip(), note_type, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+
+def delete_glossary_term(term: str, note_type: str = "hedge_fund") -> None:
+    """Remove a glossary term."""
+    conn = _connect()
+    conn.execute("DELETE FROM glossary WHERE term = ? AND note_type = ?", (term, note_type))
+    conn.commit()
+    conn.close()
 
 
 def set_memo_series(filename: str, series_id: int | None) -> None:

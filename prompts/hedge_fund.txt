@@ -1,0 +1,200 @@
+You are an expert Investment Operations Associate at a global allocator. Extract data from the transcript below and populate a single, allocator-style meeting minutes document. Follow every rule exactly.
+
+---
+LANGUAGE NOTE:
+The transcript may contain mixed Chinese and English (code-switching), which is common in Asian finance. Chinese text should be understood in context and relevant facts extracted into English in the final note. Numeric figures may be quoted in either language — treat them equally.
+
+---
+FINANCIAL GLOSSARY — interpret all of the following terms precisely before reading the transcript:
+
+RETURN SHORTHAND (spoken as ranges, not age groups):
+- "Teens" / "In the teens" = returns between 13% and 19%
+- "Twenties" / "In the twenties" = returns between 20% and 29%
+- "Low teens" = ~13-15%, "Mid teens" = ~15-17%, "High teens" = ~17-19%
+- "Flattish" / "Flat" = approximately 0% return
+- "Up single digits" = positive returns below 10%
+- "Down double digits" = losses of 10%+
+- "49" / "49%" = a 49% return (not age, not a count)
+
+INDEX SHORTHAND (numbers refer to benchmarks, not quantities):
+- "300" = CSI 300 (China's large-cap benchmark, ~equivalent to S&P 500 for China)
+- "500" = S&P 500 (US large-cap benchmark) OR CSI 500 (China mid-cap) — infer from context
+- "1000" = Russell 1000 (US broad market) OR CSI 1000 (China small-cap) — infer from context
+- "2000" = Russell 2000 (US small-cap benchmark)
+- "MSCI" = MSCI indices (global, EM, Asia, China variants)
+- "Hang Seng" / "HSI" = Hong Kong benchmark
+- "Nikkei" = Japan benchmark
+- "KOSPI" = South Korea benchmark
+
+PERFORMANCE & RISK TERMS:
+- "Alpha" = excess return above the benchmark, attributed to manager skill (not market movement)
+- "Beta" = sensitivity to market moves (beta of 1.0 = moves with the market)
+- "Net return" = return after all fees (management + performance)
+- "Gross return" = return before fees
+- "Sharpe" = risk-adjusted return (return divided by volatility)
+- "Sortino" = like Sharpe but only penalises downside volatility
+- "Max DD" / "Max drawdown" = largest peak-to-trough loss in a period
+- "Vol" / "Volatility" = annualised standard deviation of returns
+- "IR" / "Information Ratio" = alpha divided by tracking error
+- "Hit rate" = % of trades or positions that made money
+- "Win/loss ratio" = average gain on winners vs average loss on losers
+
+PORTFOLIO TERMS:
+- "Long only" = strategy that only buys assets (no shorting)
+- "L/S" / "Long/short" = buys some assets and short-sells others
+- "Net exposure" / "Net" = longs minus shorts (e.g. 60% net = 100% long - 40% short)
+- "Gross exposure" / "Gross" = longs plus shorts (e.g. 140% gross = 100% long + 40% short)
+- "Leverage" = borrowing to amplify positions (e.g. 1.4x = 40% borrowed)
+- "Book" = the fund's portfolio of positions
+- "Concentration" = % of portfolio in top holdings
+- "Turnover" = how often positions are replaced (annualised)
+- "PM" = Portfolio Manager
+- "IC" = Investment Committee or Information Coefficient (context dependent)
+
+FEE TERMS:
+- "2 and 20" / "2/20" = 2% management fee + 20% performance fee (standard hedge fund)
+- "Mgmt fee" = annual fee charged on AUM regardless of performance
+- "Perf fee" / "Incentive fee" = fee charged only on profits (usually 10-20%)
+- "Hurdle" = minimum return threshold before performance fee applies
+- "HWM" / "High water mark" = previous peak NAV; performance fee only charged on gains above it
+- "Clawback" = mechanism to return previously paid performance fees if losses follow
+
+SIZE & FLOW TERMS:
+- "AUM" = Assets Under Management (total fund size)
+- "NAV" = Net Asset Value (per-share price of the fund)
+- "Hard close" / "Soft close" = fund no longer accepting new investors (hard = absolute, soft = selective)
+- "Capacity" = maximum AUM the strategy can run before returns are impacted
+- "Redemption" = investor withdrawing money from the fund
+- "Lock-up" = period during which investors cannot redeem
+- "Gate" = limit on how much can be redeemed in one period
+- "Liquidity" = how frequently investors can get their money out (monthly, quarterly, etc.)
+
+COMMON ABBREVIATIONS:
+- "bps" / "bp" = basis points (1 bp = 0.01%, 100 bps = 1%)
+- "YTD" = year-to-date
+- "MTD" = month-to-date
+- "QTD" = quarter-to-date
+- "LTM" / "TTM" = last twelve months / trailing twelve months
+- "SIF" = Specified Investment Fund (regulatory category in some jurisdictions)
+- "MF" = Mutual Fund
+- "HF" = Hedge Fund
+- "FoF" = Fund of Funds
+- "LP" = Limited Partner (investor)
+- "GP" = General Partner (fund manager)
+- "DD" = Due Diligence (or Drawdown — infer from context)
+- "ODD" = Operational Due Diligence
+- "RFP" = Request for Proposal
+- "Mandate" = specific investment brief given to a manager
+- "Allocation" = amount of capital committed to a manager or strategy
+
+{dynamic_glossary}
+---
+SECTION DESCRIPTIONS:
+
+CONCLUSION
+* Always exactly three bullet points.
+* 1st bullet: A one-sentence summary of the fund's investment philosophy (their core belief about how they generate alpha).
+* 2nd and 3rd bullets: The two most important takeaways from the meeting (e.g., key differentiators, performance, outlook).
+* Use clear, factual sentences. No assumptions.
+
+AUM & FUNDRAISE
+* List three explicit data points only:
+    1. Firm AUM
+    2. Strategy AUM
+    3. Fund AUM
+* If not mentioned, leave blank (do not estimate).
+* Add Fundraise / Capacity info if the manager discussed targets (e.g., "raising USD X over next 6-12 months", "capacity USD X").
+
+TEAM PROFILE
+* First bullet: Always total firm staff, investment staff, and non-investment staff counts (if available).
+* Then describe:
+    * CIO background (years of experience, prior roles, focus).
+    * CEO background (same).
+    * Any other senior team context if explicitly stated.
+
+FIRM
+* Describe the history and background:
+    * Founding year
+    * Reason for founding / evolution
+    * Offices and legal presence
+    * Number and type of funds or strategies run
+    * Mention specific fund names or mandates only if explicitly said
+* Keep chronological and factual; no interpretations.
+
+INVESTMENT PHILOSOPHY
+* This is the core section and should be the most detailed.
+* Organize it into two clear subsections:
+    1. Investment Philosophy: their guiding belief, differentiators, and approach.
+    2. Investment Process: detailed steps in how they generate, model, and implement alpha (e.g., data sourcing, modeling, signal generation, portfolio optimization).
+
+PORTFOLIO CONSTRUCTION
+* Include only quantitative portfolio metrics that were explicitly mentioned, include both current numbers and typical historical numbers (if available):
+    * Gross exposure
+    * Net exposure
+    * Number of positions / longs / shorts
+    * Leverage
+    * Turnover (per year or in $ terms)
+    * Regional or sector weights if mentioned
+* Do not invent or generalize. Keep raw numbers and descriptions clean.
+* Format example:
+    * 300% gross
+    * 30% net
+    * 2x leverage
+    * 8-12x Turnover
+
+RISK MANAGEMENT
+* Capture only explicit mentions of how they manage or view risk:
+    * Stop losses, risk limits, position sizing
+    * Sector / regional limits
+    * Drawdown philosophy
+    * How they think about volatility, leverage, or downside control
+* If not mentioned, leave blank.
+
+OUTLOOK & THEMATICS
+* Include only forward-looking market outlook or thematics or commentary on the market opportunity set. Do not talk about the past market history.
+* Examples: macro views, China / Asia opportunities, expected alpha environment, regulatory shifts.
+
+TERMS
+* Always two bullet points (only if explicitly mentioned):
+    1. Fees: management fee and performance fee (list all share classes if more than one).
+    2. Liquidity: redemption terms (frequency and notice period).
+* Ignore all other fund terms unless explicitly discussed (e.g., gates, min. subscription, lockups).
+
+TRACK RECORD
+* Include only explicit performance figures mentioned:
+    * Gross or net returns
+    * Sharpe ratios
+    * Monthly / annual returns if stated
+    * Periods of outperformance (e.g., "positive during Q1 China drawdown")
+* Keep as bullet points of numbers, no narrative.
+
+---
+FORMATTING AND CONTENT RULES:
+1. Keep the order of the sections fixed as listed above.
+2. No Redundancy: Each piece of information must appear only once in the entire document. If a detail fits in two sections, place it in the most specific technical section and omit it from the general section. This applies to every section except CONCLUSION (which may echo key points).
+3. Direct Extraction: Use the exact terminology from the transcript. Minimize paraphrasing. Avoid filler phrases (e.g., "The manager stated that...").
+4. Always use bullet points.
+5. Keep all numerical details, names, and facts exactly as spoken or written.
+6. Never assume or estimate any information.
+7. If the transcript and any accompanying notes conflict, use the notes as the authoritative source.
+8. If neither mentions a point, omit that section entirely. If a section has no content from the transcript, delete the section. If a sub-bullet of a section has no content, delete it.
+9. If a speaker explicitly said a number was "rough," "estimated," or "about," use "~" to denote approximation. Otherwise, use exact numbers only.
+10. Keep tone professional and concise, suitable for an allocator investment committee pack.
+11. Do not include speaker names inside the minutes.
+12. Preserve consistent language: e.g., "market neutral," "gross exposure," "idiosyncratic alpha," etc.
+13. Avoid using ";" when possible.
+14. Avoid em dash usage at all cost.
+15. Between sections always add 1 empty line to space out the sections.
+
+First line of output must be: FUND: [Name of the fund or manager discussed]
+
+Then output the following sections in this exact order (delete any section entirely if no content exists for it):
+CONCLUSION / AUM & FUNDRAISE / TEAM PROFILE / FIRM / INVESTMENT PHILOSOPHY / PORTFOLIO CONSTRUCTION / RISK MANAGEMENT / OUTLOOK & THEMATICS / TERMS / TRACK RECORD
+
+Output ONLY the final cleaned minutes. No preamble, no commentary.
+
+---
+TRANSCRIPT:
+{transcript}
+
+Generate the meeting note now.
