@@ -1,0 +1,89 @@
+<svg width="640" height="320" viewBox="0 0 640 320" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Dark background gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d0d12"/>
+      <stop offset="100%" stop-color="#111118"/>
+    </linearGradient>
+    <!-- Bar gradient: light at top, rich at bottom -->
+    <linearGradient id="barGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a5b4fc"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+    <!-- Glow filter -->
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Subtle inner glow on bars -->
+    <filter id="softglow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background rounded rect -->
+  <rect width="640" height="320" rx="24" fill="url(#bgGrad)"/>
+
+  <!-- Subtle purple orb glow behind bars -->
+  <ellipse cx="320" cy="140" rx="130" ry="80" fill="#6366f1" opacity="0.07"/>
+
+  <!--
+    11 waveform bars, bell-curve heights, centered at x=320
+    Each bar: width=18, gap=10 → step=28
+    Total width: 11*18 + 10*10 = 198+100 = 298 → start x = 320 - 149 = 171
+    Bar center y = 140
+    Heights: 32, 52, 80, 108, 136, 158, 136, 108, 80, 52, 32
+  -->
+
+  <!-- Bar 1 -->
+  <rect x="171" y="124" width="18" height="32" rx="9"  fill="url(#barGrad)" opacity="0.22" filter="url(#softglow)"/>
+  <!-- Bar 2 -->
+  <rect x="199" y="114" width="18" height="52" rx="9"  fill="url(#barGrad)" opacity="0.38" filter="url(#softglow)"/>
+  <!-- Bar 3 -->
+  <rect x="227" y="100" width="18" height="80" rx="9"  fill="url(#barGrad)" opacity="0.56" filter="url(#softglow)"/>
+  <!-- Bar 4 -->
+  <rect x="255" y=" 86" width="18" height="108" rx="9" fill="url(#barGrad)" opacity="0.72" filter="url(#softglow)"/>
+  <!-- Bar 5 -->
+  <rect x="283" y=" 72" width="18" height="136" rx="9" fill="url(#barGrad)" opacity="0.88" filter="url(#softglow)"/>
+  <!-- Bar 6 (CENTER — tallest) -->
+  <rect x="311" y=" 61" width="18" height="158" rx="9" fill="url(#barGrad)"               filter="url(#glow)"/>
+  <!-- Bar 7 -->
+  <rect x="339" y=" 72" width="18" height="136" rx="9" fill="url(#barGrad)" opacity="0.88" filter="url(#softglow)"/>
+  <!-- Bar 8 -->
+  <rect x="367" y=" 86" width="18" height="108" rx="9" fill="url(#barGrad)" opacity="0.72" filter="url(#softglow)"/>
+  <!-- Bar 9 -->
+  <rect x="395" y="100" width="18" height="80"  rx="9" fill="url(#barGrad)" opacity="0.56" filter="url(#softglow)"/>
+  <!-- Bar 10 -->
+  <rect x="423" y="114" width="18" height="52"  rx="9" fill="url(#barGrad)" opacity="0.38" filter="url(#softglow)"/>
+  <!-- Bar 11 -->
+  <rect x="451" y="124" width="18" height="32"  rx="9" fill="url(#barGrad)" opacity="0.22" filter="url(#softglow)"/>
+
+  <!-- Wordmark: PHONOS in white, .ai in indigo -->
+  <text
+    x="320" y="270"
+    font-family="'SF Pro Display', 'Inter', system-ui, -apple-system, 'Helvetica Neue', sans-serif"
+    font-size="46"
+    font-weight="800"
+    fill="#f4f4f8"
+    text-anchor="middle"
+    letter-spacing="-1"
+  >PHONOS<tspan fill="#6366f1">.AI</tspan></text>
+
+  <!-- Tagline -->
+  <text
+    x="320" y="298"
+    font-family="'SF Pro Text', 'Inter', system-ui, -apple-system, sans-serif"
+    font-size="13"
+    font-weight="400"
+    fill="#52525b"
+    text-anchor="middle"
+    letter-spacing="2"
+  >VOICE MEMO INTELLIGENCE</text>
+</svg>

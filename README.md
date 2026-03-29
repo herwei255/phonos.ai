@@ -1,8 +1,56 @@
-# Phonos.ai
+<div align="center">
 
-Turn your voice memos into structured meeting notes — automatically.
+<img src="assets/logo.svg" width="480" alt="Phonos.ai logo"/>
 
-Record on your iPhone, upload to the app, and Phonos transcribes the audio and generates a clean summary in seconds. Works with mixed-language recordings (English + Mandarin). Has a special Hedge Fund mode that understands finance slang like "up in the teens" and "vs the 300" — and gets smarter with every meeting you process.
+**Your voice memos, intelligently structured.**
+
+Record on your iPhone. Walk into the office. Your meeting notes are already waiting — transcribed, summarised, and formatted for how you actually work.
+
+[![Python](https://img.shields.io/badge/Python-3.10+-6366f1?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![Flask](https://img.shields.io/badge/Flask-3.0-6366f1?style=flat-square&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
+[![Groq Whisper](https://img.shields.io/badge/Groq-Whisper_v3-8b5cf6?style=flat-square)](https://console.groq.com)
+[![DeepSeek](https://img.shields.io/badge/DeepSeek-V3-8b5cf6?style=flat-square)](https://openrouter.ai)
+[![License](https://img.shields.io/badge/License-MIT-52525b?style=flat-square)](LICENSE)
+
+</div>
+
+---
+
+## The problem
+
+Professionals who spend their days in meetings — fund managers, investors, consultants, lawyers — record voice memos constantly. The information lives locked in audio files. Turning recordings into structured, actionable notes takes 30–60 minutes per meeting by hand, and the quality depends on whoever is doing the transcription.
+
+## What Phonos.ai does
+
+Phonos.ai is a personal voice memo intelligence tool. Record on your iPhone, it appears on your desktop, and within minutes you have a structured meeting document — automatically transcribed, summarised, and ready for your committee pack or inbox. Zero clicks after setup.
+
+---
+
+## Screenshots
+
+| Sidebar & memo list | Meeting notes detail |
+|---|---|
+| ![Sidebar](assets/screenshot-sidebar.png) | ![Notes](assets/screenshot-notes.png) |
+
+> **Note:** Add your own screenshots by saving them to `assets/` and updating the paths above.
+
+---
+
+## Core use cases
+
+**Hedge fund / allocator due diligence** — Drop a voice memo from an LP meeting and get a fully structured allocator note: investment philosophy, team, AUM, track record, portfolio construction, terms — extracted in the exact format your IC requires. The AI learns your firm's shorthand and terminology with every memo, getting sharper over time.
+
+**Sales and client meetings** — Record a client call, get an instant summary with action items and next steps. Reps save 45 minutes per meeting and never forget a commitment again.
+
+**Internal knowledge capture** — Strategy discussions, brainstorming sessions, post-mortems. Everything becomes searchable, comparable, and shareable. Ask the AI questions across all your notes in a single chat interface.
+
+**Recurring meeting intelligence** — Link meetings into a Series. The comparison tool automatically surfaces what changed between the Q1 and Q2 LP call — new risks, revised outlooks, whether commitments were followed through on.
+
+**iCloud-native for iPhone users** — Record on your phone, walk into the office, and the transcript and notes are already waiting. No app switching, no uploading.
+
+## Why it's different
+
+Most transcription tools stop at the transcript. Phonos.ai applies domain-specific intelligence on top — industry glossaries, allocator-style formatting, custom prompt types per meeting category — so the output is ready to use, not ready to edit. And because it runs locally, your LP conversations, fund names, and performance data never leave your machine.
 
 ---
 
@@ -84,7 +132,7 @@ Every memo automatically gets a short title extracted from the AI-generated note
 
 ### Chat with your notes
 
-Switch to the **Chat with Notes** tab and ask anything across all your recordings — "What did the Edelweiss fund say about their drawdown?" or "What action items came out of last week's meetings?"
+Switch to the **Chat with Notes** tab and ask anything across all your recordings — "What did the Edelweiss fund say about their drawdown?" or "What action items came out of last week's meetings?" Powered by DeepSeek V3. History persists across restarts.
 
 ### Recurring meeting series
 
@@ -165,9 +213,6 @@ Make sure iCloud Voice Memos sync is on (Settings → iCloud → Voice Memos). T
 **Apple Notes toggle is missing**
 Apple Notes integration only works on macOS. It won't appear on Windows or Linux.
 
-**I forgot my password**
-Open `.env` in a text editor and look for `APP_PASSWORD=`. If it's blank, there's no password. If it's set, that's your password.
-
 **App won't start / "port already in use"**
 The app runs on port 5001. If something else is using that port, open `.env` and add `PORT=5002` (or any other number), then restart.
 
@@ -177,6 +222,7 @@ The app runs on port 5001. If something else is using that port, open `.env` and
 
 ```
 phonos/
+├── assets/                ← logo and screenshots
 ├── voice_memos/           ← your audio files live here
 ├── memos.db               ← all transcripts, notes, and glossary stored here (SQLite)
 ├── .env                   ← your API keys (never share this file)
@@ -185,6 +231,7 @@ phonos/
 ├── transcriber.py         ← Groq Whisper transcription
 ├── summarizer.py          ← DeepSeek note generation
 ├── glossary.py            ← dynamic terminology extraction and injection
+├── oauth_client.py        ← Google OAuth setup
 ├── prompts/               ← all AI prompt templates as plain text files
 │   ├── standard.txt
 │   ├── hedge_fund.txt
@@ -194,13 +241,12 @@ phonos/
 ├── chat.py                ← Chat with Notes logic
 ├── apple_notes.py         ← Apple Notes integration (macOS only)
 ├── watcher.py             ← iCloud folder auto-watch
-├── voice_memo_metadata.py ← display name extraction (backlog)
 ├── db.py                  ← database layer
 └── routes.py              ← all API endpoints
 ```
 
 ---
 
-## Deploying online (so anyone can access it from anywhere)
+## Deploying online
 
-See `DEPLOY.md` for step-by-step instructions to deploy on Railway (free tier available). Once deployed, you get a public URL you can open on any device — phone, tablet, or another laptop.
+See `DEPLOY.md` for step-by-step instructions to deploy on Railway (free tier available). Once deployed, you get a public URL you can open on any device — phone, tablet, or another laptop. Supports Google OAuth for multi-user access with fully isolated accounts.
