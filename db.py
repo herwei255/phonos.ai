@@ -2,6 +2,7 @@
 db.py — SQLite database layer.
 All reads/writes go through these functions. Swap to Postgres etc. by only editing here.
 """
+from __future__ import annotations
 import json
 import os
 import sqlite3

@@ -12,6 +12,7 @@ Implementation detail: HTML body content is written to a temp file and read by
 AppleScript via POSIX file. This avoids the AppleScript string-length limit and
 handles any special characters (quotes, backslashes, unicode) reliably.
 """
+from __future__ import annotations
 import os
 import re
 import subprocess

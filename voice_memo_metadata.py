@@ -12,6 +12,7 @@ This module queries that DB to resolve the friendly name for a given filename.
 Falls back to a cleaned-up version of the filename if the DB isn't accessible
 or the recording isn't found.
 """
+from __future__ import annotations
 
 import logging
 import os

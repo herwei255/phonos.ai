@@ -47,6 +47,10 @@ def require_login():
     if request.endpoint in _AUTH_EXEMPT:
         return
     if not session.get("user_id"):
+        if _is_local():
+            session["user_id"]   = 1
+            session["user_name"] = "Local"
+            return
         return redirect(url_for("main.login"))
 
 
@@ -59,6 +63,9 @@ def _is_local() -> bool:
 
 @bp.route("/login", methods=["GET", "POST"])
 def login():
+    # Localhost skips auth entirely
+    if _is_local():
+        return redirect(url_for("main.index"))
     # Already logged in
     if session.get("user_id"):
         return redirect(url_for("main.index"))
@@ -91,6 +98,8 @@ def logout():
 
 @bp.route("/register", methods=["GET", "POST"])
 def register():
+    if _is_local():
+        return redirect(url_for("main.index"))
     if session.get("user_id"):
         return redirect(url_for("main.index"))
 
@@ -119,11 +128,13 @@ def register():
 
 @bp.route("/")
 def index():
-    # Not logged in → landing page on web, straight to login on localhost
+    # Not logged in
     if not session.get("user_id"):
         if _is_local():
-            return redirect(url_for("main.login"))
-        return render_template("landing.html")
+            session["user_id"]   = 1
+            session["user_name"] = "Local"
+        else:
+            return render_template("landing.html")
 
     import json
     display_prompts = {}

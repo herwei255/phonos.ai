@@ -11,6 +11,7 @@ Usage:
     watcher.stop()    # called at app shutdown (optional)
     watcher.status()  # returns current state dict for the UI
 """
+from __future__ import annotations
 
 import logging
 import os
